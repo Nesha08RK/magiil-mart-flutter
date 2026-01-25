@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'screens/main_navigation.dart';
 
 import 'providers/cart_provider.dart';
 import 'screens/home_screen.dart';
@@ -25,7 +26,8 @@ class MagiilMartApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
       ),
-      home: const HomeScreen(),
+      home: const MainNavigation(),
+
     );
   }
 }
