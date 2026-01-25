@@ -89,7 +89,7 @@ class ProductCard extends StatelessWidget {
             ),
           ),
 
-          // ADD / COUNT BUTTON
+          // ADD / - COUNT + CONTROLS
           Consumer<CartProvider>(
             builder: (context, cart, _) {
               final item = cart.items
@@ -98,23 +98,55 @@ class ProductCard extends StatelessWidget {
 
               final count = item.isEmpty ? 0 : item.first.quantity;
 
-              return ElevatedButton(
-                onPressed: () {
-                  cart.addItem(name, int.parse(price));
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      count == 0 ? Colors.green : Colors.orange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // SHOW ADD BUTTON
+              if (count == 0) {
+                return ElevatedButton(
+                  onPressed: () {
+                    cart.addItem(name, int.parse(price));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
+                  child: const Text(
+                    'Add',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                );
+              }
+
+              // SHOW - COUNT +
+              return Container(
+                decoration: BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  count == 0 ? 'Add' : count.toString(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove, color: Colors.white),
+                      onPressed: () {
+                        cart.decreaseItem(name);
+                      },
+                    ),
+                    Text(
+                      count.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      onPressed: () {
+                        cart.addItem(name, int.parse(price));
+                      },
+                    ),
+                  ],
                 ),
               );
             },
