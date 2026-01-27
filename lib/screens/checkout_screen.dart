@@ -12,98 +12,136 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _addressController = TextEditingController();
+  bool isPlacingOrder = false;
 
-  bool _loading = false;
+  Future<void> placeOrder() async {
+    final cart = Provider.of<CartProvider>(context, listen: false);
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login first')),
+      );
+      return;
+    }
+
+    if (cart.items.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cart is empty')),
+      );
+      return;
+    }
+
+    setState(() => isPlacingOrder = true);
+
+    try {
+      await supabase.from('orders').insert({
+        'user_id': user.id,
+        'total_amount': cart.totalAmount,
+        'items': cart.items
+            .map((item) => {
+                  'name': item.name,
+                  'price': item.price,
+                  'quantity': item.quantity,
+                })
+            .toList(),
+        'created_at': DateTime.now().toIso8601String(),
+      });
+
+      cart.clearCart();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order placed successfully')),
+      );
+
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to place order: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isPlacingOrder = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final cart = Provider.of<CartProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Checkout')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Name'),
-            ),
-            TextField(
-              controller: _phoneController,
-              decoration: const InputDecoration(labelText: 'Phone'),
-              keyboardType: TextInputType.phone,
-            ),
-            TextField(
-              controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Address'),
-            ),
-            const SizedBox(height: 24),
-
-            Text(
-              'Total: ₹${cart.totalAmount}',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-
-            const Spacer(),
-
-            ElevatedButton(
-              onPressed: _loading
-                  ? null
-                  : () async {
-                      if (_nameController.text.isEmpty ||
-                          _phoneController.text.isEmpty ||
-                          _addressController.text.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Fill all fields')),
-                        );
-                        return;
-                      }
-
-                      setState(() => _loading = true);
-
-                      final supabase = Supabase.instance.client;
-
-                      await supabase.from('orders').insert({
-                        'name': _nameController.text,
-                        'phone': _phoneController.text,
-                        'address': _addressController.text,
-                        'total': cart.totalAmount,
-                        'items': cart.items
-                            .map((item) => {
-                                  'name': item.name,
-                                  'price': item.price,
-                                  'quantity': item.quantity,
-                                })
-                            .toList(),
-                      });
-
-                      cart.clearCart();
-
-                      if (!mounted) return;
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Order placed successfully')),
-                      );
-
-                      Navigator.pop(context);
-                    },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _loading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text('Place Order'),
-            ),
-          ],
-        ),
+      appBar: AppBar(
+        title: const Text('Checkout'),
+        centerTitle: true,
       ),
+      body: cart.items.isEmpty
+          ? const Center(child: Text('Your cart is empty'))
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: cart.items.length,
+                      itemBuilder: (context, index) {
+                        final item = cart.items[index];
+                        return ListTile(
+                          title: Text(item.name),
+                          subtitle:
+                              Text('₹${item.price} × ${item.quantity}'),
+                          trailing: Text(
+                            '₹${item.price * item.quantity}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Total',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        '₹${cart.totalAmount}',
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed:
+                          isPlacingOrder ? null : () => placeOrder(),
+                      child: isPlacingOrder
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                          : const Text(
+                              'Place Order',
+                              style: TextStyle(fontSize: 16),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
