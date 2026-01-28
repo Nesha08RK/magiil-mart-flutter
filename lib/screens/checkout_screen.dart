@@ -12,9 +12,9 @@ class CheckoutScreen extends StatefulWidget {
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  bool isPlacingOrder = false;
+  bool _isPlacingOrder = false;
 
-  Future<void> placeOrder() async {
+  Future<void> _placeOrder() async {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final supabase = Supabase.instance.client;
     final user = supabase.auth.currentUser;
@@ -30,23 +30,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (cart.items.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cart is empty')),
+        const SnackBar(content: Text('Your cart is empty')),
       );
       return;
     }
 
-    setState(() => isPlacingOrder = true);
+    setState(() => _isPlacingOrder = true);
 
     try {
       await supabase.from('orders').insert({
         'user_id': user.id,
         'total_amount': cart.totalAmount,
+        'status': 'Placed',
         'items': cart.items
-            .map((item) => {
-                  'name': item.name,
-                  'price': item.price,
-                  'quantity': item.quantity,
-                })
+            .map(
+              (item) => {
+                'name': item.name,
+                'price': item.price,
+                'quantity': item.quantity,
+              },
+            )
             .toList(),
         'created_at': DateTime.now().toIso8601String(),
       });
@@ -56,7 +59,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Order placed successfully')),
+        const SnackBar(
+          content: Text('Order placed successfully'),
+          backgroundColor: Colors.green,
+        ),
       );
 
       Navigator.pop(context);
@@ -64,11 +70,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to place order: $e')),
+        SnackBar(
+          content: Text('Failed to place order'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) {
-        setState(() => isPlacingOrder = false);
+        setState(() => _isPlacingOrder = false);
       }
     }
   }
@@ -83,59 +92,93 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         centerTitle: true,
       ),
       body: cart.items.isEmpty
-          ? const Center(child: Text('Your cart is empty'))
+          ? const Center(
+              child: Text(
+                'Your cart is empty',
+                style: TextStyle(fontSize: 18),
+              ),
+            )
           : Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // 🛒 Items
                   Expanded(
                     child: ListView.builder(
                       itemCount: cart.items.length,
                       itemBuilder: (context, index) {
                         final item = cart.items[index];
-                        return ListTile(
-                          title: Text(item.name),
-                          subtitle:
-                              Text('₹${item.price} × ${item.quantity}'),
-                          trailing: Text(
-                            '₹${item.price * item.quantity}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold),
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            title: Text(
+                              item.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            subtitle: Text(
+                              '₹${item.price} × ${item.quantity}',
+                            ),
+                            trailing: Text(
+                              '₹${item.price * item.quantity}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         );
                       },
                     ),
                   ),
-                  const SizedBox(height: 16),
+
+                  // 💰 Total
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Total',
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       Text(
                         '₹${cart.totalAmount}',
                         style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 20),
+
+                  // ✅ Place Order Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed:
-                          isPlacingOrder ? null : () => placeOrder(),
-                      child: isPlacingOrder
-                          ? const CircularProgressIndicator(
-                              color: Colors.white,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
+                      onPressed: _isPlacingOrder ? null : _placeOrder,
+                      child: _isPlacingOrder
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             )
                           : const Text(
                               'Place Order',
-                              style: TextStyle(fontSize: 16),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                     ),
                   ),
