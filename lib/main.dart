@@ -9,15 +9,21 @@ import 'screens/auth/login_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ✅ REQUIRED for Flutter Web (prevents auto logout)
   await Supabase.initialize(
     url: 'https://ealevibdxysypygbxquc.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhbGV2aWJkeHlzeXB5Z2J4cXVjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkzNTQ5MzUsImV4cCI6MjA4NDkzMDkzNX0.ibBJhGXsrwv0U8RtvgvPPnkGrgyibzPuZVC-7H8EgzU',
+    authOptions: const FlutterAuthClientOptions(
+      authFlowType: AuthFlowType.pkce, // 🔥 VERY IMPORTANT
+    ),
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => CartProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => CartProvider()),
+      ],
       child: const MagiilMartApp(),
     ),
   );
@@ -28,8 +34,6 @@ class MagiilMartApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final session = Supabase.instance.client.auth.currentSession;
-
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Magiil Mart',
@@ -37,7 +41,21 @@ class MagiilMartApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
       ),
-      home: session == null ? const LoginScreen() : const MainNavigation(),
+
+      // ✅ Reacts to auth state changes properly
+      home: StreamBuilder<AuthState>(
+        stream: Supabase.instance.client.auth.onAuthStateChange,
+        builder: (context, snapshot) {
+          final session =
+              Supabase.instance.client.auth.currentSession;
+
+          if (session == null) {
+            return const LoginScreen();
+          } else {
+            return const MainNavigation();
+          }
+        },
+      ),
     );
   }
 }
