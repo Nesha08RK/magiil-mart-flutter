@@ -8,7 +8,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F8FA),
+      backgroundColor: const Color(0xFFE8E3DE), // Warm neutral
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -16,19 +16,19 @@ class HomeScreen extends StatelessWidget {
         title: const Text(
           'Magiil Mart',
           style: TextStyle(
-            color: Colors.black,
+            color: Color(0xFF5A2E4A), // Plum
             fontSize: 22,
             fontWeight: FontWeight.bold,
+            letterSpacing: 0.4,
           ),
         ),
-        // ❌ NO ACTIONS HERE
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: GridView.count(
           crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisSpacing: 18,
+          mainAxisSpacing: 18,
           children: const [
             CategoryCard(title: 'Vegetables', icon: Icons.eco),
             CategoryCard(title: 'Fruits', icon: Icons.apple),
@@ -54,7 +54,7 @@ class CategoryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
       onTap: () {
         Navigator.push(
           context,
@@ -65,27 +65,53 @@ class CategoryCard extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.green.shade300,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: const [
+          borderRadius: BorderRadius.circular(22),
+
+          // 🌸 PLUM LUXURY GRADIENT
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF6B3E5E), // Rich Plum
+              Color(0xFFA0789A), // Dusty Mauve
+            ],
+          ),
+
+          // ✨ SOFT PREMIUM SHADOW
+          boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 8,
-              offset: Offset(0, 4),
+              color: Color(0xFF6B3E5E).withOpacity(0.35),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 42, color: Colors.white),
-            const SizedBox(height: 12),
+            // 🌟 GLASSY ICON CIRCLE
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 42,
+                color: Colors.white,
+              ),
+            ),
+
+            const SizedBox(height: 14),
+
             Text(
               title,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 color: Colors.white,
+                letterSpacing: 0.3,
               ),
             ),
           ],

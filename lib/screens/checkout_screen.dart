@@ -38,19 +38,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isPlacingOrder = true);
 
     try {
-      print('Placing order for user: ${user.id}');
-
       await supabase.from('orders').insert({
         'user_id': user.id,
         'total_amount': cart.totalAmount,
         'status': 'Placed',
-        'items': cart.items
-            .map((item) => {
-                  'name': item.name,
-                  'price': item.price,
-                  'quantity': item.quantity,
-                })
-            .toList(),
+        'items': cart.items.map((item) => item.toMap()).toList(),
       });
 
       cart.clearCart();
@@ -66,8 +58,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       Navigator.pop(context);
     } catch (e) {
-      print('ORDER ERROR: $e');
-
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -113,13 +103,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: ListTile(
                             title: Text(
                               item.name,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600),
                             ),
-                            subtitle:
-                                Text('₹${item.price} × ${item.quantity}'),
+                            subtitle: Text(
+                              '₹${item.unitPrice.toStringAsFixed(2)} × '
+                              '${item.quantity} ${item.selectedUnit}',
+                            ),
                             trailing: Text(
-                              '₹${item.price * item.quantity}',
+                              '₹${item.totalPrice.toStringAsFixed(2)}',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold),
                             ),
@@ -128,6 +120,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       },
                     ),
                   ),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -137,29 +130,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '₹${cart.totalAmount}',
+                        '₹${cart.totalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                             fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 20),
+
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                      ),
                       onPressed: _isPlacingOrder ? null : _placeOrder,
                       child: _isPlacingOrder
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
+                          ? const CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
                             )
                           : const Text(
                               'Place Order',

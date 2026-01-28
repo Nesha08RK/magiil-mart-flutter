@@ -37,51 +37,90 @@ class CartScreen extends StatelessWidget {
                         ),
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Row(
+                          child: Column(
                             children: [
-                              // ITEM DETAILS
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.name,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      '₹${item.price} × ${item.quantity}',
-                                      style: const TextStyle(
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                              // ➖ ➕ CONTROLS
                               Row(
                                 children: [
-                                  IconButton(
-                                    icon: const Icon(Icons.remove),
-                                    onPressed: () {
-                                      cart.decreaseItem(item.name);
-                                    },
-                                  ),
-                                  Text(
-                                    item.quantity.toString(),
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                  // ITEM DETAILS
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '₹${item.unitPrice} × ${item.quantity} ${item.selectedUnit}',
+                                          style: const TextStyle(
+                                            color: Colors.grey,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
+
+                                  // TOTAL PRICE FOR THIS ITEM
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '₹${item.totalPrice}',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFC9A347),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              // ➖ ➕ CONTROLS + DELETE BUTTON
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Quantity Controls
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.remove, size: 20),
+                                        onPressed: () {
+                                          cart.decreaseItem(item.name, item.selectedUnit);
+                                        },
+                                      ),
+                                      Text(
+                                        item.quantity.toString(),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.add, size: 20),
+                                        onPressed: () {
+                                          cart.increaseItem(item.name, item.selectedUnit);
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  // Delete Button
                                   IconButton(
-                                    icon: const Icon(Icons.add),
+                                    icon: const Icon(Icons.delete, color: Colors.red),
                                     onPressed: () {
-                                      cart.increaseItem(item.name);
+                                      cart.removeItem(item.name, item.selectedUnit);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('${item.name} removed from cart'),
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
                                     },
                                   ),
                                 ],

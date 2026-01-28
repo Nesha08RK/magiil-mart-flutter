@@ -17,25 +17,43 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => loading = true);
 
     try {
-      await Supabase.instance.client.auth.signUp(
+      final response = await Supabase.instance.client.auth.signUp(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
       );
 
+      final user = response.user;
+
+      if (user == null) {
+        throw Exception('Signup failed');
+      }
+
+      // ✅ INSERT PROFILE WITH DEFAULT ROLE = customer
+      await Supabase.instance.client.from('profiles').insert({
+        'id': user.id,
+        'email': user.email,
+        'role': 'customer', // 👈 DEFAULT ROLE
+      });
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created! Please login')),
+        const SnackBar(
+          content: Text('Account created! Please login'),
+        ),
       );
 
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
     }
 
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+    }
   }
 
   @override
@@ -60,11 +78,22 @@ class _SignupScreenState extends State<SignupScreen> {
             ),
             const SizedBox(height: 24),
 
-            ElevatedButton(
-              onPressed: loading ? null : signup,
-              child: loading
-                  ? const CircularProgressIndicator()
-                  : const Text('Sign Up'),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                onPressed: loading ? null : signup,
+                child: loading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Sign Up'),
+              ),
             ),
           ],
         ),
