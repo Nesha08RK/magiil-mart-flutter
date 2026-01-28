@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'order_details_screen.dart';
+
 class OrdersScreen extends StatelessWidget {
   const OrdersScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: Text('Please login to see orders')),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -17,6 +26,7 @@ class OrdersScreen extends StatelessWidget {
         stream: supabase
             .from('orders')
             .stream(primaryKey: ['id'])
+            .eq('user_id', user.id)
             .order('created_at', ascending: false),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
@@ -59,6 +69,14 @@ class OrdersScreen extends StatelessWidget {
                     ),
                   ),
                   trailing: _statusIcon(order['status']),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => OrderDetailsScreen(order: order),
+                      ),
+                    );
+                  },
                 ),
               );
             },
