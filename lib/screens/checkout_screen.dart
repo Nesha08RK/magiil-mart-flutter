@@ -38,20 +38,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isPlacingOrder = true);
 
     try {
+      print('Placing order for user: ${user.id}');
+
       await supabase.from('orders').insert({
         'user_id': user.id,
         'total_amount': cart.totalAmount,
         'status': 'Placed',
         'items': cart.items
-            .map(
-              (item) => {
-                'name': item.name,
-                'price': item.price,
-                'quantity': item.quantity,
-              },
-            )
+            .map((item) => {
+                  'name': item.name,
+                  'price': item.price,
+                  'quantity': item.quantity,
+                })
             .toList(),
-        'created_at': DateTime.now().toIso8601String(),
       });
 
       cart.clearCart();
@@ -67,10 +66,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       Navigator.pop(context);
     } catch (e) {
+      print('ORDER ERROR: $e');
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Failed to place order'),
           backgroundColor: Colors.red,
         ),
@@ -102,7 +103,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  // 🛒 Items
                   Expanded(
                     child: ListView.builder(
                       itemCount: cart.items.length,
@@ -113,49 +113,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           child: ListTile(
                             title: Text(
                               item.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
                             ),
-                            subtitle: Text(
-                              '₹${item.price} × ${item.quantity}',
-                            ),
+                            subtitle:
+                                Text('₹${item.price} × ${item.quantity}'),
                             trailing: Text(
                               '₹${item.price * item.quantity}',
                               style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
                         );
                       },
                     ),
                   ),
-
-                  // 💰 Total
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Total',
                         style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         '₹${cart.totalAmount}',
                         style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
-                  // ✅ Place Order Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -176,9 +164,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           : const Text(
                               'Place Order',
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
                             ),
                     ),
                   ),
