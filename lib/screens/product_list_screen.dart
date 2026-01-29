@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
-import '../services/customer_product_service.dart';
+import 'services/customer_product_service.dart';
 
 // Helper function to calculate unit conversion ratio
 double getUnitConversion(String baseUnit, String selectedUnit) {

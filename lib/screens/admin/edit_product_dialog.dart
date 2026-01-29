@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../models/admin_product.dart';
-import '../../services/admin_service.dart';
+import '../services/admin_service.dart';
 
 class EditProductDialog extends StatefulWidget {
   final AdminProduct product;
@@ -31,10 +31,10 @@ class _EditProductDialogState extends State<EditProductDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.product.name);
-    _priceController =
-        TextEditingController(text: widget.product.basePrice.toString());
-    _stockController =
-        TextEditingController(text: widget.product.stock.toString());
+    _priceController = TextEditingController(
+        text: (widget.product.basePrice ?? 0).toString());
+    _stockController = TextEditingController(
+        text: (widget.product.stock ?? 0).toString());
     _selectedUnit = widget.product.baseUnit;
   }
 
@@ -52,14 +52,14 @@ class _EditProductDialogState extends State<EditProductDialog> {
 
     try {
       await _adminService.updateProduct(
-        productId: widget.product.id,
+        productId: widget.product.id.toString(),
         name: _nameController.text.trim(),
         basePrice: int.parse(_priceController.text),
         baseUnit: _selectedUnit,
       );
 
       await _adminService.updateProductStock(
-        productId: widget.product.id,
+        productId: widget.product.id.toString(),
         newStock: int.parse(_stockController.text),
       );
 

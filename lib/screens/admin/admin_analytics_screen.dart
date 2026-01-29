@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../services/admin_product_service.dart';
-import '../../services/admin_orders_service.dart';
+import '../services/admin_product_service.dart';
+import '../services/admin_orders_service.dart';
 
-/// Admin analytics screen showing business metrics.
+/// Admin analytics screen showing business metrics - NOW WITH REAL-TIME UPDATES
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({Key? key}) : super(key: key);
 
@@ -17,25 +17,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
   bool _loading = true;
   Map<String, dynamic> _productStats = {};
-  Map<String, dynamic> _orderStats = {};
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadProductStats();
   }
 
-  Future<void> _load() async {
+  /// Load product stats (static - doesn't change often)
+  Future<void> _loadProductStats() async {
     setState(() {
       _loading = true;
     });
     try {
       final productCounts = await _productService.getProductCounts();
-      final orderStats = await _orderService.getOrderStats();
-
       setState(() {
         _productStats = productCounts;
-        _orderStats = orderStats;
       });
     } catch (e) {
       if (mounted) {
@@ -127,12 +124,13 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Admin - Analytics'),
+        title: const Text('Admin - Analytics (Live)'),
+        centerTitle: true,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _load,
+              onRefresh: _loadProductStats,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
@@ -174,86 +172,134 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Orders Section
-                    Text(
-                      'Order Analytics',
-                      style: theme.textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 12),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
+                    // Orders Section - ✅ REAL-TIME STREAMING
+                    Row(
                       children: [
-                        _buildStatCard(
-                          title: 'Total Orders',
-                          value: '${_orderStats['total_orders'] ?? 0}',
-                          icon: Icons.receipt,
-                          color: Colors.purple,
+                        Text(
+                          'Order Analytics (Live)',
+                          style: theme.textTheme.headlineSmall,
                         ),
-                        _buildStatCard(
-                          title: 'Today Orders',
-                          value: '${_orderStats['today_orders'] ?? 0}',
-                          icon: Icons.calendar_today,
-                          color: Colors.orange,
-                        ),
-                        _buildStatCard(
-                          title: 'Total Revenue',
-                          value: '₹${(_orderStats['total_revenue'] ?? 0).toStringAsFixed(0)}',
-                          icon: Icons.trending_up,
-                          color: Colors.teal,
-                        ),
-                        _buildStatCard(
-                          title: 'Today Revenue',
-                          value: '₹${(_orderStats['today_revenue'] ?? 0).toStringAsFixed(0)}',
-                          icon: Icons.attach_money,
-                          color: Colors.amber,
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: Colors.green,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+                    // ✅ Stream real-time order stats
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: _orderService.streamOrderStats(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error loading analytics: ${snapshot.error}'),
+                          );
+                        }
+
+                        final orderStats = snapshot.data ?? {};
+                        return GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            _buildStatCard(
+                              title: 'Total Orders',
+                              value: '${orderStats['total_orders'] ?? 0}',
+                              icon: Icons.receipt,
+                              color: Colors.purple,
+                            ),
+                            _buildStatCard(
+                              title: 'Today Orders',
+                              value: '${orderStats['today_orders'] ?? 0}',
+                              icon: Icons.calendar_today,
+                              color: Colors.orange,
+                            ),
+                            _buildStatCard(
+                              title: 'Total Revenue',
+                              value: '₹${(orderStats['total_revenue'] ?? 0).toStringAsFixed(0)}',
+                              icon: Icons.trending_up,
+                              color: Colors.teal,
+                            ),
+                            _buildStatCard(
+                              title: 'Today Revenue',
+                              value: '₹${(orderStats['today_revenue'] ?? 0).toStringAsFixed(0)}',
+                              icon: Icons.attach_money,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                     const SizedBox(height: 32),
 
-                    // Order Status Breakdown
+                    // Order Status Breakdown - ✅ REAL-TIME STREAMING
                     Text(
-                      'Order Status Breakdown',
+                      'Order Status Breakdown (Live)',
                       style: theme.textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 12),
-                    Card(
-                      elevation: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildStatusRow(
-                              'Placed',
-                              _orderStats['order_status_counts']?['Placed'] ?? 0,
-                              Colors.blue,
+                    StreamBuilder<Map<String, dynamic>>(
+                      stream: _orderService.streamOrderStats(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error loading status breakdown: ${snapshot.error}'),
+                          );
+                        }
+
+                        final orderStats = snapshot.data ?? {};
+                        final statusCounts = orderStats['order_status_counts'] as Map? ?? {};
+
+                        return Card(
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildStatusRow(
+                                  'Placed',
+                                  statusCounts['Placed'] ?? 0,
+                                  Colors.blue,
+                                ),
+                                const SizedBox(height: 12),
+                                _buildStatusRow(
+                                  'Packed',
+                                  statusCounts['Packed'] ?? 0,
+                                  Colors.orange,
+                                ),
+                                const SizedBox(height: 12),
+                                _buildStatusRow(
+                                  'Out for Delivery',
+                                  statusCounts['Out for Delivery'] ?? 0,
+                                  Colors.purple,
+                                ),
+                                const SizedBox(height: 12),
+                                _buildStatusRow(
+                                  'Delivered',
+                                  statusCounts['Delivered'] ?? 0,
+                                  Colors.green,
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 12),
-                            _buildStatusRow(
-                              'Packed',
-                              _orderStats['order_status_counts']?['Packed'] ?? 0,
-                              Colors.orange,
-                            ),
-                            const SizedBox(height: 12),
-                            _buildStatusRow(
-                              'Out for Delivery',
-                              _orderStats['order_status_counts']?['Out for Delivery'] ?? 0,
-                              Colors.purple,
-                            ),
-                            const SizedBox(height: 12),
-                            _buildStatusRow(
-                              'Delivered',
-                              _orderStats['order_status_counts']?['Delivered'] ?? 0,
-                              Colors.green,
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

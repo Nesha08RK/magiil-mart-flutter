@@ -58,17 +58,22 @@ class OrderDetailsScreen extends StatelessWidget {
                 itemCount: items.length,
                 itemBuilder: (context, index) {
                   final item = items[index];
+                  // ✅ Null-safe numeric parsing
+                  final price = _parseDouble(item['unit_price'] ?? item['price'] ?? 0.0);
+                  final quantity = _parseInt(item['quantity'] ?? 1);
+                  final totalPrice = price * quantity;
+                  
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
                     child: ListTile(
                       title: Text(
-                        item['name'],
+                        item['name'] ?? 'Unknown Item',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                       subtitle:
-                          Text('₹${item['price']} × ${item['quantity']}'),
+                          Text('₹${price.toStringAsFixed(2)} × $quantity'),
                       trailing: Text(
-                        '₹${item['price'] * item['quantity']}',
+                        '₹${totalPrice.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
@@ -98,4 +103,20 @@ class OrderDetailsScreen extends StatelessWidget {
       ],
     );
   }
-}
+
+  /// ✅ Safely parse double from any type
+  double _parseDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0.0;
+    return 0.0;
+  }
+
+  /// ✅ Safely parse int from any type
+  int _parseInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 1;
+    return 1;
+  }}

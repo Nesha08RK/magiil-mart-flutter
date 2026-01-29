@@ -3,6 +3,9 @@ class AdminOrder {
   final String id;
   final String userId;
   final String userEmail;
+  final String? customerName; // ✅ NEW
+  final String? phoneNumber; // ✅ NEW
+  final String? deliveryAddress; // ✅ NEW
   final double totalAmount;
   final String status;
   final List<OrderItem> items;
@@ -13,6 +16,9 @@ class AdminOrder {
     required this.id,
     required this.userId,
     required this.userEmail,
+    this.customerName,
+    this.phoneNumber,
+    this.deliveryAddress,
     required this.totalAmount,
     required this.status,
     required this.items,
@@ -26,6 +32,9 @@ class AdminOrder {
       id: map['id'] ?? '',
       userId: map['user_id'] ?? '',
       userEmail: map['user_email'] ?? 'N/A',
+      customerName: map['customer_name'] as String?,
+      phoneNumber: map['phone_number'] as String?,
+      deliveryAddress: map['delivery_address'] as String?,
       totalAmount: (map['total_amount'] is num) ? (map['total_amount'] as num).toDouble() : double.tryParse('${map['total_amount']}') ?? 0.0,
       status: map['status'] ?? 'Placed',
       items: (map['items'] is List)
@@ -44,6 +53,9 @@ class AdminOrder {
       'id': id,
       'user_id': userId,
       'user_email': userEmail,
+      'customer_name': customerName,
+      'phone_number': phoneNumber,
+      'delivery_address': deliveryAddress,
       'total_amount': totalAmount,
       'status': status,
       'items': items.map((e) => e.toMap()).toList(),
@@ -74,6 +86,9 @@ class AdminOrder {
     String? id,
     String? userId,
     String? userEmail,
+    String? customerName,
+    String? phoneNumber,
+    String? deliveryAddress,
     double? totalAmount,
     String? status,
     List<OrderItem>? items,
@@ -84,6 +99,9 @@ class AdminOrder {
       id: id ?? this.id,
       userId: userId ?? this.userId,
       userEmail: userEmail ?? this.userEmail,
+      customerName: customerName ?? this.customerName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       totalAmount: totalAmount ?? this.totalAmount,
       status: status ?? this.status,
       items: items ?? this.items,

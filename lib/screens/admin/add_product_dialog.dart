@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../services/admin_service.dart';
+import '../services/admin_service.dart';
 
 class AddProductDialog extends StatefulWidget {
   final VoidCallback onProductAdded;

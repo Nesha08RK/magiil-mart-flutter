@@ -20,10 +20,14 @@ Future<void> main() async {
     ),
   );
 
+  // ✅ Initialize cart with persistence
+  final cartProvider = CartProvider();
+  await cartProvider.initialize();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => CartProvider()),
+        ChangeNotifierProvider<CartProvider>(create: (_) => cartProvider),
       ],
       child: const MagiilMartApp(),
     ),

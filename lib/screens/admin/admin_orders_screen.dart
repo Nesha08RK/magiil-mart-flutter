@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_order.dart';
-import '../../services/admin_orders_service.dart';
+import '../services/admin_orders_service.dart';
 
 /// Admin orders screen showing all customer orders.
 class AdminOrdersScreen extends StatefulWidget {
@@ -20,6 +21,12 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   void initState() {
     super.initState();
     _load();
+    _setupRealtimeListener();
+  }
+
+  /// ✅ Setup realtime listener for new orders (StreamBuilder handles realtime)
+  void _setupRealtimeListener() {
+    debugPrint('Realtime listener setup: StreamBuilder will handle updates');
   }
 
   Future<void> _load() async {
@@ -45,7 +52,16 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
 
   Future<void> _updateOrderStatus(AdminOrder order, String newStatus) async {
     try {
-      await _service.updateOrderStatus(order.id, newStatus);
+      if (newStatus == 'Packed') {
+        await _service.markPacked(order.id);
+      } else if (newStatus == 'Out for Delivery') {
+        await _service.markOutForDelivery(order.id);
+      } else if (newStatus == 'Delivered') {
+        await _service.markDelivered(order.id);
+      } else {
+        await _service.updateOrderStatus(order.id, newStatus);
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Order status updated to $newStatus')),
       );
@@ -78,6 +94,10 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
       case 'Delivered':
         bgColor = Colors.green.shade100;
         textColor = Colors.green.shade900;
+        break;
+      case 'Cancelled': // ✅ NEW
+        bgColor = Colors.red.shade100;
+        textColor = Colors.red.shade900;
         break;
       default:
         bgColor = Colors.grey.shade100;
@@ -113,12 +133,17 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text('Customer: ${order.userEmail}',
-                style: const TextStyle(fontSize: 12)),
+            // ✅ Show customer name if available
+            if (order.customerName != null && order.customerName!.isNotEmpty)
+              Text('Customer: ${order.customerName}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+            Text('Email: ${order.userEmail}', style: const TextStyle(fontSize: 12)),
+            // ✅ Show phone number if available
+            if (order.phoneNumber != null && order.phoneNumber!.isNotEmpty)
+              Text('Phone: ${order.phoneNumber}', style: const TextStyle(fontSize: 12)),
             Text('Amount: ₹${order.totalAmount.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 12)),
-            Text('Items: ${order.items.length}',
-                style: const TextStyle(fontSize: 12)),
+            Text('Items: ${order.items.length}', style: const TextStyle(fontSize: 12)),
             Text('Date: ${order.getFormattedDate()}',
                 style: const TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 8),
@@ -135,8 +160,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
               const PopupMenuItem(value: 'Packed', child: Text('Mark as Packed')),
             if (order.status == 'Packed')
               const PopupMenuItem(
-                  value: 'Out for Delivery',
-                  child: Text('Mark Out for Delivery')),
+                  value: 'Out for Delivery', child: Text('Mark Out for Delivery')),
             if (order.status == 'Out for Delivery')
               const PopupMenuItem(value: 'Delivered', child: Text('Mark Delivered')),
             const PopupMenuItem(
@@ -163,10 +187,43 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ✅ Customer Name
+              if (order.customerName != null && order.customerName!.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Customer Name: ${order.customerName}',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                  ],
+                ),
               Text('Customer Email: ${order.userEmail}',
                   style: const TextStyle(fontWeight: FontWeight.bold)),
+              // ✅ Phone Number
+              if (order.phoneNumber != null && order.phoneNumber!.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text('Phone: ${order.phoneNumber}', style: const TextStyle(fontSize: 14)),
+                  ],
+                ),
+              // ✅ Delivery Address
+              if (order.deliveryAddress != null && order.deliveryAddress!.isNotEmpty)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 8),
+                    Text('Delivery Address:', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(order.deliveryAddress!, style: const TextStyle(fontSize: 13)),
+                  ],
+                ),
               const SizedBox(height: 8),
-              Text('Status: ${order.status}'),
+              Text('Status: ${order.status}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: order.status == 'Cancelled' ? Colors.red : Colors.black,
+                  )),
               const SizedBox(height: 8),
               Text('Total Amount: ₹${order.totalAmount.toStringAsFixed(2)}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -198,35 +255,89 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final supabase = Supabase.instance.client;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Admin - Orders'),
+        elevation: 0,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: _orders.isEmpty
-                  ? const Center(
-                      child: Text('No orders yet'),
-                    )
-                  : SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Total Orders: ${_orders.length}',
-                              style: theme.textTheme.headlineSmall),
-                          const SizedBox(height: 12),
-                          ...List.generate(
-                            _orders.length,
-                            (idx) => _buildOrderCard(_orders[idx]),
-                          ),
-                        ],
-                      ),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: supabase
+            .from('orders')
+            .stream(primaryKey: ['id'])
+            .order('created_at', ascending: false),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No orders yet'));
+          }
+
+          final ordersData = snapshot.data!;
+          final orders = ordersData.map((e) => AdminOrder.fromMap(e as Map<String, dynamic>)).toList();
+
+          return RefreshIndicator(
+            onRefresh: _load,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ✅ Real-time order count
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
                     ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Total Orders: ${orders.length}', style: theme.textTheme.headlineSmall),
+                            Text(
+                              "Active: ${orders.where((o) => o.status != 'Delivered' && o.status != 'Cancelled').length}",
+                              style: TextStyle(color: Colors.blue.shade700),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Text(
+                            '${orders.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ✅ Orders list with realtime updates
+                  ...List.generate(
+                    orders.length,
+                    (idx) => _buildOrderCard(orders[idx]),
+                  ),
+                ],
+              ),
             ),
+          );
+        },
+      ),
     );
   }
 }

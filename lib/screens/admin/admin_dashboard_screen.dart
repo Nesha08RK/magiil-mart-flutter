@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_product.dart';
-import '../../services/admin_product_service.dart';
+import '../services/admin_product_service.dart';
 import 'import_xlsx_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_analytics_screen.dart';

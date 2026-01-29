@@ -13,6 +13,19 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacingOrder = false;
+  
+  // ✅ Customer form fields
+  final _customerNameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+
+  @override
+  void dispose() {
+    _customerNameController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
 
   /// Reduce product stock after order placement
   Future<void> _reduceProductStock(List<dynamic> cartItems) async {
@@ -57,6 +70,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final supabase = Supabase.instance.client;
     final user = supabase.auth.currentUser;
 
+    // ✅ Validate customer fields
+    if (_customerNameController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your name')),
+      );
+      return;
+    }
+    
+    if (_phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your phone number')),
+      );
+      return;
+    }
+    
+    if (_addressController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your delivery address')),
+      );
+      return;
+    }
+
     if (user == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -79,10 +114,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Get user email
       final userEmail = user.email ?? 'unknown@email.com';
 
-      // Create order
+      // ✅ Create order with customer details
       await supabase.from('orders').insert({
         'user_id': user.id,
         'user_email': userEmail,
+        'customer_name': _customerNameController.text,
+        'phone_number': _phoneController.text,
+        'delivery_address': _addressController.text,
         'total_amount': cart.totalAmount,
         'status': 'Placed',
         'items': cart.items.map((item) => item.toMap()).toList(),
@@ -135,38 +173,97 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 style: TextStyle(fontSize: 18),
               ),
             )
-          : Padding(
+          : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: cart.items.length,
-                      itemBuilder: (context, index) {
-                        final item = cart.items[index];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Text(
-                              item.name,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text(
-                              '₹${item.unitPrice.toStringAsFixed(2)} × '
-                              '${item.quantity} ${item.selectedUnit}',
-                            ),
-                            trailing: Text(
-                              '₹${item.totalPrice.toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
+                  // 🛒 CART ITEMS
+                  const Text(
+                    'Order Items',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: cart.items.length,
+                    itemBuilder: (context, index) {
+                      final item = cart.items[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ListTile(
+                          title: Text(
+                            item.name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600),
                           ),
-                        );
-                      },
+                          subtitle: Text(
+                            '₹${item.unitPrice.toStringAsFixed(2)} × '
+                            '${item.quantity} ${item.selectedUnit}',
+                          ),
+                          trailing: Text(
+                            '₹${item.totalPrice.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // 👤 CUSTOMER DETAILS FORM
+                  const Text(
+                    'Delivery Information',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  TextField(
+                    controller: _customerNameController,
+                    decoration: InputDecoration(
+                      labelText: 'Full Name',
+                      hintText: 'Enter your full name',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  TextField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number',
+                      hintText: 'Enter your phone number',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.phone),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  TextField(
+                    controller: _addressController,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: 'Delivery Address',
+                      hintText: 'Enter your full delivery address',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.location_on),
                     ),
                   ),
 
+                  const SizedBox(height: 24),
+
+                  // 💰 TOTAL
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -185,6 +282,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                   const SizedBox(height: 20),
 
+                  // PLACE ORDER BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -209,3 +307,4 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 }
+

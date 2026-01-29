@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../../models/admin_product.dart';
-import '../../services/admin_product_service.dart';
+import '../services/admin_product_service.dart';
 import '../../utils/xlsx_parser.dart';
 
 /// Screen that allows admin to pick XLSX file, preview and import.
