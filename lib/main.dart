@@ -6,7 +6,6 @@ import 'providers/cart_provider.dart';
 import 'screens/main_navigation.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
-import 'utils/role_util.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +43,7 @@ class MagiilMartApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
 
-        scaffoldBackgroundColor: const Color(0xFFE8E3DE), // Warm neutral
+        scaffoldBackgroundColor: const Color(0xFFFFFFFF), // Professional white
 
         colorScheme: const ColorScheme(
           brightness: Brightness.light,
@@ -61,7 +60,7 @@ class MagiilMartApp extends StatelessWidget {
           surface: Colors.white,
           onSurface: Color(0xFF2C2C2C),
 
-          background: Color(0xFFE8E3DE),
+          background: Colors.white,
           onBackground: Color(0xFF2C2C2C),
 
           error: Colors.redAccent,

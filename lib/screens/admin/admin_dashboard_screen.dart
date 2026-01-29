@@ -2,305 +2,298 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_product.dart';
-import '../../services/admin_service.dart';
-import '../auth/login_screen.dart';
-import 'add_product_dialog.dart';
-import 'edit_product_dialog.dart';
+import '../../services/admin_product_service.dart';
+import 'import_xlsx_screen.dart';
+import 'admin_orders_screen.dart';
+import 'admin_analytics_screen.dart';
 
+/// Admin dashboard screen showing product counts and list.
 class AdminDashboardScreen extends StatefulWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({Key? key}) : super(key: key);
 
   @override
-  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  _AdminDashboardScreenState createState() => _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
-  final _adminService = AdminService();
-  late Future<List<AdminProduct>> _productsFuture;
+  final AdminProductService _service = AdminProductService();
+  bool _loading = true;
+  List<AdminProduct> _products = [];
+  int _total = 0;
+  int _inStock = 0;
+  int _outOfStock = 0;
 
   @override
   void initState() {
     super.initState();
-    _productsFuture = _adminService.fetchAllProducts();
+    _load();
   }
 
-  void _refreshProducts() {
+  Future<void> _load() async {
     setState(() {
-      _productsFuture = _adminService.fetchAllProducts();
+      _loading = true;
     });
+    try {
+      final counts = await _service.getProductCounts();
+      final products = await _service.fetchAllProducts();
+      setState(() {
+        _products = products;
+        _total = counts['total'] ?? 0;
+        _inStock = counts['in_stock'] ?? 0;
+        _outOfStock = counts['out_of_stock'] ?? 0;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load products: $e')));
+    } finally {
+      setState(() {
+        _loading = false;
+      });
+    }
   }
 
-  Future<void> _logout() async {
-    await Supabase.instance.client.auth.signOut();
-    if (!mounted) return;
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+  Future<void> _deleteProduct(int id) async {
+    try {
+      await _service.deleteProduct(id);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
+      await _load();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    }
   }
 
-  Future<void> _deleteProduct(AdminProduct product) async {
-    final confirm = await showDialog<bool>(
+  Future<void> _toggleOutOfStock(AdminProduct p) async {
+    try {
+      final updated = p.copyWith(isOutOfStock: !p.isOutOfStock);
+      await _service.updateProduct(updated);
+      await _load();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+    }
+  }
+
+  Future<void> _editStock(AdminProduct p) async {
+    final controller = TextEditingController(text: p.stock.toString());
+    final result = await showDialog<int?>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Delete Product'),
-        content: Text('Delete "${product.name}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm != true) return;
-
-    await _adminService.deleteProduct(product.id);
-    _refreshProducts();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Product deleted')),
-    );
-  }
-
-  Future<void> _toggleOutOfStock(AdminProduct product) async {
-    await _adminService.toggleOutOfStock(
-      productId: product.id,
-      isOutOfStock: !product.isOutOfStock,
-    );
-
-    _refreshProducts();
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          product.isOutOfStock
-              ? 'Product marked as available'
-              : 'Product marked as out of stock',
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFE8E3DE),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        centerTitle: true,
-        elevation: 0,
-        title: const Text(
-          'Admin Dashboard',
-          style: TextStyle(
-            color: Color(0xFF5A2E4A),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Update stock'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Stock count'),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF5A2E4A)),
-            onPressed: _logout,
-          ),
+          TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
+          ElevatedButton(
+              onPressed: () => Navigator.of(ctx).pop(int.tryParse(controller.text)),
+              child: const Text('Save'))
         ],
-      ),
-      body: FutureBuilder<List<AdminProduct>>(
-        future: _productsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text('Error: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _refreshProducts,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final products = snapshot.data ?? [];
-
-          if (products.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.inventory_2, size: 48, color: Colors.grey),
-                  const SizedBox(height: 16),
-                  const Text('No products yet'),
-                  const SizedBox(height: 24),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      await showDialog(
-                        context: context,
-                        builder: (_) => AddProductDialog(
-                          onProductAdded: _refreshProducts,
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Product'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return RefreshIndicator(
-            // ✅ FIXED HERE
-            onRefresh: () async => _refreshProducts(),
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: products.length + 1,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: ElevatedButton.icon(
-                      onPressed: () async {
-                        await showDialog(
-                          context: context,
-                          builder: (_) => AddProductDialog(
-                            onProductAdded: _refreshProducts,
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.add),
-                      label: const Text('Add New Product'),
-                    ),
-                  );
-                }
-
-                final product = products[index - 1];
-
-                return ProductTile(
-                  product: product,
-                  onEdit: () async {
-                    await showDialog(
-                      context: context,
-                      builder: (_) => EditProductDialog(
-                        product: product,
-                        onProductUpdated: _refreshProducts,
-                      ),
-                    );
-                  },
-                  onToggleOutOfStock: () => _toggleOutOfStock(product),
-                  onDelete: () => _deleteProduct(product),
-                );
-              },
-            ),
-          );
-        },
       ),
     );
+
+    if (result != null) {
+      try {
+        final updated = p.copyWith(stock: result, isOutOfStock: result <= 0);
+        await _service.updateProduct(updated);
+        await _load();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stock updated')));
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      }
+    }
   }
-}
 
-class ProductTile extends StatelessWidget {
-  final AdminProduct product;
-  final VoidCallback onEdit;
-  final VoidCallback onToggleOutOfStock;
-  final VoidCallback onDelete;
-
-  const ProductTile({
-    super.key,
-    required this.product,
-    required this.onEdit,
-    required this.onToggleOutOfStock,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: product.isOutOfStock
-            ? Border.all(color: Colors.red.shade200, width: 2)
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
+  Widget _buildProductCard(AdminProduct p) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 2,
+      child: ListTile(
+        leading: p.imageUrl != null && p.imageUrl!.isNotEmpty
+            ? Image.network(p.imageUrl!, width: 56, height: 56, fit: BoxFit.cover)
+            : const SizedBox(width: 56, height: 56, child: Icon(Icons.image_not_supported)),
+        title: Text(p.name, style: theme.textTheme.titleMedium),
+        subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              product.name,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+            Text('${p.category} • ${p.basePrice.toStringAsFixed(2)} / ${p.baseUnit}'),
+            Text('Stock: ${p.stock}'),
+            if (p.isOutOfStock || p.stock <= 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 4.0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                  child: const Text('OUT OF STOCK', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '₹${product.basePrice}/${product.baseUnit}',
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Stock: ${product.stock}',
-              style: TextStyle(
-                color: product.stock == 0 ? Colors.red : Colors.green,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: onToggleOutOfStock,
-                  icon: const Icon(Icons.local_shipping, size: 16),
-                  label: Text(
-                    product.isOutOfStock ? 'Available' : 'Out Stock',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: onDelete,
-                  icon: const Icon(Icons.delete, size: 16),
-                  label: const Text('Delete'),
-                ),
-              ],
-            ),
+          ],
+        ),
+        isThreeLine: true,
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) async {
+            if (value == 'edit_stock') {
+              await _editStock(p);
+            } else if (value == 'toggle') {
+              await _toggleOutOfStock(p);
+            } else if (value == 'delete') {
+              if (p.id != null) await _deleteProduct(p.id!);
+            }
+          },
+          itemBuilder: (ctx) => [
+            const PopupMenuItem(value: 'edit_stock', child: Text('Edit stock')),
+            PopupMenuItem(value: 'toggle', child: Text(p.isOutOfStock ? 'Mark In Stock' : 'Mark Out of Stock')),
+            const PopupMenuItem(value: 'delete', child: Text('Delete')),
           ],
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Admin - Product Management'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.upload_file),
+            tooltip: 'Import XLSX',
+            onPressed: () async {
+              // Navigate to import screen and refresh after completion
+              await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ImportXlsxScreen()));
+              await _load();
+            },
+          )
+        ],
+      ),
+      drawer: _buildDrawer(),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(12.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Total products', style: theme.textTheme.labelSmall),
+                                Text('$_total', style: theme.textTheme.headlineSmall),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('In stock', style: theme.textTheme.labelSmall),
+                                Text('$_inStock', style: theme.textTheme.headlineSmall?.copyWith(color: Colors.green)),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Out of stock', style: theme.textTheme.labelSmall),
+                                Text('$_outOfStock', style: theme.textTheme.headlineSmall?.copyWith(color: Colors.red)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text('Products', style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      itemCount: _products.length,
+                      itemBuilder: (_, idx) => _buildProductCard(_products[idx]),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+    );
+  }
+
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        children: [
+          const DrawerHeader(
+            decoration: BoxDecoration(
+              color: Color(0xFF5A2E4A),
+            ),
+            child: Text(
+              'Admin Panel',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.shopping_bag),
+            title: const Text('Products'),
+            onTap: () {
+              Navigator.of(context).pop();
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.receipt),
+            title: const Text('Orders'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminOrdersScreen()),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.analytics),
+            title: const Text('Analytics'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AdminAnalyticsScreen()),
+              );
+            },
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Logout', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              await _logout();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _logout() async {
+    try {
+      await Supabase.instance.client.auth.signOut();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed: $e')),
+        );
+      }
+    }
   }
 }

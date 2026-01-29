@@ -14,7 +14,7 @@ class AdminService {
           .order('created_at', ascending: false);
 
       return (response as List)
-          .map((p) => AdminProduct.fromJson(p as Map<String, dynamic>))
+          .map((p) => AdminProduct.fromMap(p as Map<String, dynamic>))
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch products: $e');
@@ -44,7 +44,7 @@ class AdminService {
       }
 
       final response = await _supabase.from('products').insert(payload).select().single();
-      return AdminProduct.fromJson(response as Map<String, dynamic>);
+      return AdminProduct.fromMap(response as Map<String, dynamic>);
     } catch (e) {
       // If Postgres complains about an unexpected column, retry without optional keys
       final msg = e.toString();
@@ -58,7 +58,7 @@ class AdminService {
             'is_out_of_stock': stock == 0,
           };
           final response = await _supabase.from('products').insert(payload).select().single();
-          return AdminProduct.fromJson(response as Map<String, dynamic>);
+          return AdminProduct.fromMap(response as Map<String, dynamic>);
         } catch (e2) {
           throw Exception('Failed to add product (retry): $e2');
         }

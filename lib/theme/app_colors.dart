@@ -11,7 +11,7 @@ class AppColors {
   static const Color sage = Color(0xFFA8B5A2); // Soft Sage
 
   // 🤍 Neutrals
-  static const Color background = Color(0xFFE8E3DE); // Light Warm Gray
+  static const Color background = Color(0xFFFFFFFF); // Professional White
   static const Color card = Colors.white;
   static const Color textDark = Color(0xFF2B2B2B);
   static const Color textLight = Color(0xFF6E6E6E);

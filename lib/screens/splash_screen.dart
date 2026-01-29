@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'auth/login_screen.dart';
-import 'main_navigation.dart';
+import 'package:magiil_mart/screens/auth/login_screen.dart';
+import 'package:magiil_mart/screens/main_navigation.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

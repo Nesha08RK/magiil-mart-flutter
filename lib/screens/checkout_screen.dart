@@ -14,6 +14,44 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacingOrder = false;
 
+  /// Reduce product stock after order placement
+  Future<void> _reduceProductStock(List<dynamic> cartItems) async {
+    final supabase = Supabase.instance.client;
+
+    for (final item in cartItems) {
+      try {
+        // Get product by name
+        final data = await supabase
+            .from('products')
+            .select('id, stock, is_out_of_stock')
+            .eq('name', item.name)
+            .limit(1) as List<dynamic>;
+
+        if (data.isEmpty) continue;
+
+        final productId = data.first['id'];
+        final currentStock = (data.first['stock'] is num)
+            ? (data.first['stock'] as num).toInt()
+            : int.tryParse('${data.first['stock']}') ?? 0;
+
+        // Calculate new stock
+        final newStock = (currentStock - item.quantity).clamp(0, double.infinity).toInt();
+        final isOutOfStock = newStock <= 0;
+
+        // Update product stock and out_of_stock status
+        await supabase
+            .from('products')
+            .update({
+              'stock': newStock,
+              'is_out_of_stock': isOutOfStock,
+            })
+            .eq('id', productId);
+      } catch (e) {
+        print('Exception in _reduceProductStock: $e');
+      }
+    }
+  }
+
   Future<void> _placeOrder() async {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final supabase = Supabase.instance.client;
@@ -38,12 +76,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() => _isPlacingOrder = true);
 
     try {
+      // Get user email
+      final userEmail = user.email ?? 'unknown@email.com';
+
+      // Create order
       await supabase.from('orders').insert({
         'user_id': user.id,
+        'user_email': userEmail,
         'total_amount': cart.totalAmount,
         'status': 'Placed',
         'items': cart.items.map((item) => item.toMap()).toList(),
       });
+
+      // Reduce stock for each item
+      await _reduceProductStock(cart.items);
 
       cart.clearCart();
 
@@ -61,8 +107,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to place order'),
+        SnackBar(
+          content: Text('Failed to place order: $e'),
           backgroundColor: Colors.red,
         ),
       );
