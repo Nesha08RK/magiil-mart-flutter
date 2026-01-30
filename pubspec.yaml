@@ -25,6 +25,9 @@ dependencies:
   # ✅ Cart persistence
   shared_preferences: ^2.2.0
 
+  # 🖼️ Image picker for profile
+  image_picker: ^1.0.0
+
   # Icons
   cupertino_icons: ^1.0.8
 
