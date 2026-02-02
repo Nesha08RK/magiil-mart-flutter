@@ -2,7 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Model for customer product view
 class CustomerProduct {
-  final int? id;
+  final String? id;
   final String name;
   final String category;
   final double basePrice;
@@ -24,7 +24,7 @@ class CustomerProduct {
 
   factory CustomerProduct.fromMap(Map<String, dynamic> map) {
     return CustomerProduct(
-      id: map['id'] is int ? map['id'] as int : (map['id'] is String ? int.tryParse(map['id']) : null),
+      id: map['id']?.toString(),
       name: map['name'] ?? '',
       category: map['category'] ?? '',
       basePrice: (map['base_price'] is num) ? (map['base_price'] as num).toDouble() : double.tryParse('${map['base_price']}') ?? 0.0,
@@ -88,6 +88,29 @@ class CustomerProductService {
       return CustomerProduct.fromMap(Map<String, dynamic>.from(data.first as Map));
     } catch (e) {
       throw Exception('Failed to fetch product: $e');
+    }
+  }
+
+  /// Search products by name (customer side)
+  Future<List<CustomerProduct>> searchProducts(String query) async {
+    if (query.isEmpty) {
+      return await fetchAllAvailableProducts();
+    }
+
+    try {
+      final searchTerm = '%$query%';
+      final data = await _supabase
+          .from('products')
+          .select()
+          .ilike('name', searchTerm)
+          .eq('is_out_of_stock', false)
+          .order('name', ascending: true) as List<dynamic>;
+
+      return data
+          .map((e) => CustomerProduct.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to search products: $e');
     }
   }
 }

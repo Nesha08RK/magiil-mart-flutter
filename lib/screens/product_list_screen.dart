@@ -65,6 +65,8 @@ class _ProductListScreenState extends State<ProductListScreen> {
   late final CustomerProductService _service;
   bool _loading = true;
   List<CustomerProduct> _products = [];
+  List<CustomerProduct> _filteredProducts = [];
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -81,6 +83,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
       final products = await _service.fetchProductsByCategory(widget.category);
       setState(() {
         _products = products;
+        _filteredProducts = products;
       });
     } catch (e) {
       if (mounted) {
@@ -97,10 +100,23 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
+  void _filterProducts(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+      if (_searchQuery.isEmpty) {
+        _filteredProducts = _products;
+      } else {
+        _filteredProducts = _products.where((product) {
+          return product.name.toLowerCase().contains(_searchQuery) &&
+              !product.isOutOfStock &&
+              product.stock > 0;
+        }).toList();
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
     return Scaffold(
       backgroundColor: const Color(0xFFFAF9F7),
       appBar: AppBar(
@@ -129,50 +145,91 @@ class _ProductListScreenState extends State<ProductListScreen> {
           : RefreshIndicator(
               onRefresh: _loadProducts,
               color: const Color(0xFF5A2E4A),
-              child: _products.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shopping_bag_outlined,
-                            size: 64,
-                            color: Colors.grey.shade300,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: TextField(
+                        onChanged: _filterProducts,
+                        decoration: InputDecoration(
+                          hintText: 'Search products...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: _searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    FocusScope.of(context).unfocus();
+                                    _filterProducts('');
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No products available',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey.shade600,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
                       ),
-                    )
-                  : GridView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 20),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: screenWidth > 600 ? 2 : 1,
-                        childAspectRatio: 1.0,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                      ),
-                      itemCount: _products.length,
-                      itemBuilder: (context, index) {
-                        final product = _products[index];
-                        return ProductCard(
-                          name: product.name,
-                          basePrice: product.basePrice.toInt(),
-                          baseUnit: product.baseUnit,
-                          icon: Icons.shopping_bag,
-                          isOutOfStock: product.isOutOfStock,
-                          stock: product.stock,
-                          units: _getUnitsForBaseUnit(product.baseUnit),
-                        );
-                      },
                     ),
+                    // Filter out-of-stock products for customers
+                    _products
+                        .where((p) => !p.isOutOfStock && p.stock > 0)
+                        .isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 64,
+                                  color: Colors.grey.shade300,
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  _searchQuery.isEmpty
+                                      ? 'No products available'
+                                      : 'No products match your search',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : GridView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 20),
+                            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: MediaQuery.of(context).size.width > 600 ? 2 : 1,
+                              childAspectRatio: 1.0,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                            ),
+                            itemCount: _filteredProducts.length,
+                            itemBuilder: (context, index) {
+                              final product = _filteredProducts[index];
+                              // Only show available products
+                              if (product.isOutOfStock || product.stock <= 0) {
+                                return const SizedBox.shrink();
+                              }
+                              return ProductCard(
+                                name: product.name,
+                                basePrice: product.basePrice.toInt(),
+                                baseUnit: product.baseUnit,
+                                icon: Icons.shopping_bag,
+                                isOutOfStock: product.isOutOfStock,
+                                stock: product.stock,
+                                units: _getUnitsForBaseUnit(product.baseUnit),
+                              );
+                            },
+                          ),
+                  ],
+                ),
+              ),
             ),
     );
   }

@@ -1,6 +1,6 @@
 /// Model representing a product for admin operations.
 class AdminProduct {
-  final int? id;
+  final String? id;
   final String name;
   final String category;
   final double basePrice;
@@ -23,7 +23,7 @@ class AdminProduct {
   /// Create from Supabase row (Map)
   factory AdminProduct.fromMap(Map<String, dynamic> map) {
     return AdminProduct(
-      id: map['id'] is int ? map['id'] as int : (map['id'] is String ? int.tryParse(map['id']) : null),
+      id: map['id']?.toString(),
       name: map['name'] ?? '',
       category: map['category'] ?? '',
       basePrice: (map['base_price'] is num) ? (map['base_price'] as num).toDouble() : double.tryParse('${map['base_price']}') ?? 0.0,
@@ -48,8 +48,20 @@ class AdminProduct {
     };
   }
 
+  /// Convert to map for updates only (excludes image_url to avoid schema errors).
+  Map<String, dynamic> toUpdateMap() {
+    return {
+      'name': name,
+      'category': category,
+      'base_price': basePrice,
+      'base_unit': baseUnit,
+      'stock': stock,
+      'is_out_of_stock': isOutOfStock,
+    };
+  }
+
   AdminProduct copyWith({
-    int? id,
+    String? id,
     String? name,
     String? category,
     double? basePrice,

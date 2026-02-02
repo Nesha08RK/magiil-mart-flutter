@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_product.dart';
 import '../services/admin_product_service.dart';
+import '../splash_screen.dart';
 import 'import_xlsx_screen.dart';
 import 'admin_orders_screen.dart';
 import 'admin_analytics_screen.dart';
@@ -19,6 +20,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminProductService _service = AdminProductService();
   bool _loading = true;
   List<AdminProduct> _products = [];
+  List<AdminProduct> _filteredProducts = [];
+  String _searchQuery = '';
   int _total = 0;
   int _inStock = 0;
   int _outOfStock = 0;
@@ -38,6 +41,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final products = await _service.fetchAllProducts();
       setState(() {
         _products = products;
+        _filteredProducts = products;
         _total = counts['total'] ?? 0;
         _inStock = counts['in_stock'] ?? 0;
         _outOfStock = counts['out_of_stock'] ?? 0;
@@ -51,7 +55,43 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
-  Future<void> _deleteProduct(int id) async {
+  void _filterProducts(String query) {
+    setState(() {
+      _searchQuery = query.toLowerCase();
+      if (_searchQuery.isEmpty) {
+        _filteredProducts = _products;
+      } else {
+        _filteredProducts = _products.where((product) {
+          final nameMatch = product.name.toLowerCase().contains(_searchQuery);
+          final categoryMatch = product.category.toLowerCase().contains(_searchQuery);
+          return nameMatch || categoryMatch;
+        }).toList();
+      }
+    });
+  }
+
+  Future<void> _deleteProduct(String id, String productName) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Product'),
+        content: Text('Are you sure you want to delete "$productName"? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (!confirmed) return;
+
     try {
       await _service.deleteProduct(id);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Product deleted')));
@@ -136,7 +176,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             } else if (value == 'toggle') {
               await _toggleOutOfStock(p);
             } else if (value == 'delete') {
-              if (p.id != null) await _deleteProduct(p.id!);
+              if (p.id != null) await _deleteProduct(p.id!, p.name);
             }
           },
           itemBuilder: (ctx) => [
@@ -210,14 +250,50 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Text('Products', style: theme.textTheme.headlineSmall),
-                    const SizedBox(height: 8),
-                    ListView.builder(
-                      physics: const NeverScrollableScrollPhysics(),
-                      shrinkWrap: true,
-                      itemCount: _products.length,
-                      itemBuilder: (_, idx) => _buildProductCard(_products[idx]),
+                    TextField(
+                      onChanged: _filterProducts,
+                      decoration: InputDecoration(
+                        hintText: 'Search by name or category...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  FocusScope.of(context).unfocus();
+                                  _filterProducts('');
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
                     ),
+                    const SizedBox(height: 12),
+                    Text(
+                      _searchQuery.isEmpty
+                          ? 'Products'
+                          : 'Search Results (${_filteredProducts.length})',
+                      style: theme.textTheme.headlineSmall,
+                    ),
+                    const SizedBox(height: 8),
+                    _filteredProducts.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 32.0),
+                              child: Text(
+                                _searchQuery.isEmpty ? 'No products available' : 'No products match your search',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            itemCount: _filteredProducts.length,
+                            itemBuilder: (_, idx) => _buildProductCard(_filteredProducts[idx]),
+                          ),
                   ],
                 ),
               ),
@@ -286,7 +362,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     try {
       await Supabase.instance.client.auth.signOut();
       if (mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const SplashScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {

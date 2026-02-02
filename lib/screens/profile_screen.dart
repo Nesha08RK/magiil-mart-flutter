@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 
 import '../models/profile.dart';
-import 'auth/login_screen.dart';
+import 'splash_screen.dart';
 import 'profile_edit_screen.dart';
 import 'services/profile_service.dart';
 
@@ -61,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (!context.mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      MaterialPageRoute(builder: (_) => const SplashScreen()),
       (route) => false,
     );
   }

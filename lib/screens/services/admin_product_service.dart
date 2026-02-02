@@ -51,16 +51,17 @@ class AdminProductService {
 
   /// Update product by id
   Future<void> updateProduct(AdminProduct product) async {
-    if (product.id == null) throw ArgumentError('Product id is required for update');
+    if (product.id == null || product.id!.isEmpty) throw ArgumentError('Product id is required for update');
     try {
-      await _supabase.from('products').update(product.toMap()).eq('id', product.id!);
+      await _supabase.from('products').update(product.toUpdateMap()).eq('id', product.id!);
     } catch (e) {
       throw Exception('Failed to update product: $e');
     }
   }
 
-  /// Delete product by id
-  Future<void> deleteProduct(int id) async {
+  /// Delete product by id (UUID string)
+  Future<void> deleteProduct(String id) async {
+    if (id.isEmpty) throw ArgumentError('Product id cannot be empty');
     try {
       await _supabase.from('products').delete().eq('id', id);
     } catch (e) {

@@ -3,9 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/cart_provider.dart';
-import 'screens/main_navigation.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/admin/admin_dashboard_screen.dart';
+import 'screens/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -134,39 +132,8 @@ class MagiilMartApp extends StatelessWidget {
         ),
       ),
 
-      // 🔐 AUTH-AWARE NAVIGATION WITH ROLE-BASED ROUTING
-      home: StreamBuilder<AuthState>(
-        stream: Supabase.instance.client.auth.onAuthStateChange,
-        builder: (context, snapshot) {
-          final session =
-              Supabase.instance.client.auth.currentSession;
-
-          if (session == null) {
-            return const LoginScreen();
-          } else {
-            // User is logged in - check their role
-            return const _RoleBasedHome();
-          }
-        },
-      ),
+      // 🔐 SPLASH SCREEN AS ENTRY POINT
+      home: const SplashScreen(),
     );
-  }
-}
-
-/// Widget that checks user role and routes to appropriate home screen
-class _RoleBasedHome extends StatelessWidget {
-  const _RoleBasedHome();
-
-  @override
-  Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-
-    // Show admin dashboard only for the specific admin email
-    if (user != null && (user.email ?? '').toLowerCase() == 'admin@magiilmart.com') {
-      return const AdminDashboardScreen();
-    }
-
-    // Default to customer navigation
-    return const MainNavigation();
   }
 }

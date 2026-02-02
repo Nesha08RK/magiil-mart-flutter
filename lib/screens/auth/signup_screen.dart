@@ -39,7 +39,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Account created! Please login'),
+          content: Text('Account created successfully. Please log in.'),
+          duration: Duration(seconds: 2),
         ),
       );
 
