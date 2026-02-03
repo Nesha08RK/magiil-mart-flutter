@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "D:/Consultancy/magiil_mart/linux",
+    "chat.tools.terminal.autoApprove": {
+        "flutter": true
+    }
+}

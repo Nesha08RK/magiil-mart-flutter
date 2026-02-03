@@ -149,7 +149,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       elevation: 2,
       child: ListTile(
         leading: p.imageUrl != null && p.imageUrl!.isNotEmpty
-            ? Image.network(p.imageUrl!, width: 56, height: 56, fit: BoxFit.cover)
+            ? Image.network(
+                p.imageUrl!,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, error, stack) => const SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Icon(Icons.broken_image),
+                ),
+              )
             : const SizedBox(width: 56, height: 56, child: Icon(Icons.image_not_supported)),
         title: Text(p.name, style: theme.textTheme.titleMedium),
         subtitle: Column(

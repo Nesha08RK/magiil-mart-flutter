@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import '../../models/admin_product.dart';
 import '../services/admin_service.dart';
 
@@ -51,10 +53,22 @@ class _EditProductDialogState extends State<EditProductDialog> {
     setState(() => _loading = true);
 
     try {
+      final priceText = _priceController.text.trim();
+      final parsedPrice = double.tryParse(priceText);
+      if (parsedPrice == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please enter a valid price')),
+        );
+        setState(() => _loading = false);
+        return;
+      }
+
+      final basePriceInt = parsedPrice.round();
+
       await _adminService.updateProduct(
         productId: widget.product.id.toString(),
         name: _nameController.text.trim(),
-        basePrice: int.parse(_priceController.text),
+        basePrice: basePriceInt,
         baseUnit: _selectedUnit,
       );
 
@@ -130,7 +144,13 @@ class _EditProductDialogState extends State<EditProductDialog> {
                         ),
                         prefixIcon: const Icon(Icons.currency_rupee),
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                        signed: false,
+                      ),
+                      inputFormatters: !kIsWeb && defaultTargetPlatform == TargetPlatform.android
+                          ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
+                          : null,
                       enabled: !_loading,
                     ),
                   ),

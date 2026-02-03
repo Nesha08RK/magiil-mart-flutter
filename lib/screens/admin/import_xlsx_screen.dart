@@ -147,7 +147,19 @@ class _ImportXlsxScreenState extends State<ImportXlsxScreen> {
                   itemBuilder: (_, i) {
                     final p = _preview[i];
                     return ListTile(
-                      leading: p.imageUrl != null && p.imageUrl!.isNotEmpty ? Image.network(p.imageUrl!, width: 48, height: 48, fit: BoxFit.cover) : const Icon(Icons.image),
+                      leading: p.imageUrl != null && p.imageUrl!.isNotEmpty
+                          ? Image.network(
+                              p.imageUrl!,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (ctx, err, stack) => const SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Icon(Icons.broken_image),
+                              ),
+                            )
+                          : const Icon(Icons.image),
                       title: Text(p.name),
                       subtitle: Text('${p.category} • ${p.basePrice.toStringAsFixed(2)}/${p.baseUnit} • stock: ${p.stock}'),
                       trailing: p.isOutOfStock ? const Chip(label: Text('OUT')) : null,

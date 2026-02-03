@@ -30,36 +30,68 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   /// Reduce product stock after order placement
   Future<void> _reduceProductStock(List<dynamic> cartItems) async {
     final supabase = Supabase.instance.client;
-
     for (final item in cartItems) {
       try {
-        // Get product by name
+        // Robustly find product by name (case-insensitive). Using ilike helps
+        // when name casing or minor differences exist.
         final data = await supabase
             .from('products')
             .select('id, stock, is_out_of_stock')
-            .eq('name', item.name)
+            .ilike('name', item.name)
             .limit(1) as List<dynamic>;
+
+        // Fallback: try exact match if ilike didn't return (rare)
+        if (data.isEmpty) {
+          final fallback = await supabase
+              .from('products')
+              .select('id, stock, is_out_of_stock')
+              .eq('name', item.name)
+              .limit(1) as List<dynamic>;
+          if (fallback.isNotEmpty) {
+            // process using fallback
+            final productId = fallback.first['id']?.toString();
+            final currentStock = (fallback.first['stock'] is num)
+                ? (fallback.first['stock'] as num).toInt()
+                : int.tryParse('${fallback.first['stock']}') ?? 0;
+
+            final newStock = (currentStock - item.quantity).clamp(0, double.infinity).toInt();
+            final isOutOfStock = newStock <= 0;
+
+            if (productId == null || productId.isEmpty) continue;
+
+            await supabase
+                .from('products')
+                .update({'stock': newStock, 'is_out_of_stock': isOutOfStock})
+                .eq('id', productId)
+                .select()
+                .maybeSingle();
+            continue;
+          }
+        }
 
         if (data.isEmpty) continue;
 
-        final productId = data.first['id'];
+        final productId = data.first['id']?.toString();
         final currentStock = (data.first['stock'] is num)
             ? (data.first['stock'] as num).toInt()
             : int.tryParse('${data.first['stock']}') ?? 0;
 
-        // Calculate new stock
+        // Calculate new stock safely
         final newStock = (currentStock - item.quantity).clamp(0, double.infinity).toInt();
         final isOutOfStock = newStock <= 0;
 
-        // Update product stock and out_of_stock status
+        if (productId == null || productId.isEmpty) continue;
+
+        // Update product stock and out_of_stock status and request maybeSingle() to ensure it runs
         await supabase
             .from('products')
-            .update({
-              'stock': newStock,
-              'is_out_of_stock': isOutOfStock,
-            })
-            .eq('id', productId);
+            .update({'stock': newStock, 'is_out_of_stock': isOutOfStock})
+            .eq('id', productId)
+            .select()
+            .maybeSingle();
       } catch (e) {
+        // Log error but continue with other items
+        // ignore: avoid_print
         print('Exception in _reduceProductStock: $e');
       }
     }
