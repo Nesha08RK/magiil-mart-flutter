@@ -42,8 +42,12 @@ class AdminOrder {
               .map((e) => OrderItem.fromMap(Map<String, dynamic>.from(e as Map)))
               .toList()
           : [],
-      createdAt: map['created_at'] is String ? DateTime.parse(map['created_at']) : DateTime.now(),
-      updatedAt: map['updated_at'] is String ? DateTime.parse(map['updated_at']) : null,
+      createdAt: map['created_at'] is String
+          ? DateTime.parse(map['created_at'])
+          : (map['created_at'] is DateTime ? map['created_at'] as DateTime : DateTime.now()),
+      updatedAt: map['updated_at'] is String
+          ? DateTime.parse(map['updated_at'])
+          : (map['updated_at'] is DateTime ? map['updated_at'] as DateTime : null),
     );
   }
 
@@ -65,19 +69,20 @@ class AdminOrder {
 
   /// Get formatted created date
   String getFormattedDate() {
+    final dt = createdAt.toLocal();
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = today.subtract(const Duration(days: 1));
 
-    if (createdAt.isAfter(today)) {
+    if (dt.isAfter(today)) {
       // Today - show time only
-      return '${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
-    } else if (createdAt.isAfter(yesterday)) {
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } else if (dt.isAfter(yesterday)) {
       // Yesterday
-      return 'Yesterday ${createdAt.hour.toString().padLeft(2, '0')}:${createdAt.minute.toString().padLeft(2, '0')}';
+      return 'Yesterday ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
     } else {
       // Earlier - show date
-      return '${createdAt.day}/${createdAt.month}/${createdAt.year.toString().substring(2)}';
+      return '${dt.day}/${dt.month}/${dt.year.toString().substring(2)}';
     }
   }
 

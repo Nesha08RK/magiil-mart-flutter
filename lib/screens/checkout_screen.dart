@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/cart_provider.dart';
+import 'services/profile_readonly_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -13,17 +14,50 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacingOrder = false;
+  bool _editing = false;
+  bool _loadingProfile = true;
   
-  // ✅ Customer form fields
   final _customerNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
+  final _cityController = TextEditingController();
+  final _pincodeController = TextEditingController();
+  final _profileService = ProfileReadonlyService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _loadingProfile = true;
+    });
+    try {
+      final profile = await _profileService.fetchDeliveryProfile();
+      if (profile != null) {
+        _customerNameController.text = profile.fullName;
+        _phoneController.text = profile.phone;
+        _addressController.text = profile.addressLine;
+        _cityController.text = profile.city;
+        _pincodeController.text = profile.pincode;
+      }
+    } catch (_) {} finally {
+      if (!mounted) return;
+      setState(() {
+        _loadingProfile = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
     _customerNameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
+    _cityController.dispose();
+    _pincodeController.dispose();
     super.dispose();
   }
 
@@ -102,7 +136,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final supabase = Supabase.instance.client;
     final user = supabase.auth.currentUser;
 
-    // ✅ Validate customer fields
     if (_customerNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your name')),
@@ -116,10 +149,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       return;
     }
+    if (!RegExp(r'^[0-9]{10,}$').hasMatch(_phoneController.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid phone number')),
+      );
+      return;
+    }
     
     if (_addressController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your delivery address')),
+      );
+      return;
+    }
+    if (_cityController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your city')),
+      );
+      return;
+    }
+    if (_pincodeController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your pincode')),
+      );
+      return;
+    }
+    if (!RegExp(r'^\d{6}$').hasMatch(_pincodeController.text.trim())) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid 6-digit pincode')),
       );
       return;
     }
@@ -146,17 +203,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Get user email
       final userEmail = user.email ?? 'unknown@email.com';
 
-      // ✅ Create order with customer details
-      await supabase.from('orders').insert({
+      final payload = {
         'user_id': user.id,
         'user_email': userEmail,
-        'customer_name': _customerNameController.text,
-        'phone_number': _phoneController.text,
-        'delivery_address': _addressController.text,
+        'items': cart.items.map((item) => item.toMap()).toList(),
         'total_amount': cart.totalAmount,
         'status': 'Placed',
-        'items': cart.items.map((item) => item.toMap()).toList(),
-      });
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'delivery_name': _customerNameController.text.trim(),
+        'delivery_phone': _phoneController.text.trim(),
+        'delivery_address': _addressController.text.trim(),
+        'delivery_city': _cityController.text.trim(),
+        'delivery_pincode': _pincodeController.text.trim(),
+      };
+      try {
+        await supabase.from('orders').insert(payload);
+      } catch (e) {
+        final msg = e.toString();
+        if (msg.contains('column') || msg.contains('does not exist')) {
+          await supabase.from('orders').insert({
+            'user_id': user.id,
+            'user_email': userEmail,
+            'customer_name': _customerNameController.text.trim(),
+            'phone_number': _phoneController.text.trim(),
+            'delivery_address': _addressController.text.trim(),
+            'total_amount': cart.totalAmount,
+            'status': 'Placed',
+            'created_at': DateTime.now().toUtc().toIso8601String(),
+            'items': cart.items.map((item) => item.toMap()).toList(),
+          });
+        } else {
+          rethrow;
+        }
+      }
 
       // Reduce stock for each item
       await _reduceProductStock(cart.items);
@@ -197,6 +276,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         title: const Text('Checkout'),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_editing ? Icons.lock_open : Icons.edit),
+            onPressed: _loadingProfile ? null : () => setState(() => _editing = !_editing),
+          ),
+        ],
       ),
       body: cart.items.isEmpty
           ? const Center(
@@ -257,12 +342,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     controller: _customerNameController,
                     decoration: InputDecoration(
                       labelText: 'Full Name',
-                      hintText: 'Enter your full name',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       prefixIcon: const Icon(Icons.person),
                     ),
+                    readOnly: !_editing,
                   ),
                   const SizedBox(height: 12),
                   
@@ -271,12 +356,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     keyboardType: TextInputType.phone,
                     decoration: InputDecoration(
                       labelText: 'Phone Number',
-                      hintText: 'Enter your phone number',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       prefixIcon: const Icon(Icons.phone),
                     ),
+                    readOnly: !_editing,
                   ),
                   const SizedBox(height: 12),
                   
@@ -285,12 +370,37 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     maxLines: 3,
                     decoration: InputDecoration(
                       labelText: 'Delivery Address',
-                      hintText: 'Enter your full delivery address',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       prefixIcon: const Icon(Icons.location_on),
                     ),
+                    readOnly: !_editing,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _cityController,
+                    decoration: InputDecoration(
+                      labelText: 'City',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.location_city),
+                    ),
+                    readOnly: !_editing,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _pincodeController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Pincode',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      prefixIcon: const Icon(Icons.markunread_mailbox),
+                    ),
+                    readOnly: !_editing,
                   ),
 
                   const SizedBox(height: 24),
