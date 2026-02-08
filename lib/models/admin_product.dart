@@ -3,7 +3,7 @@ class AdminProduct {
   final String? id;
   final String name;
   final String category;
-  final double basePrice;
+  final int basePrice;
   final String baseUnit;
   final int stock;
   final String? imageUrl;
@@ -26,7 +26,7 @@ class AdminProduct {
       id: map['id']?.toString(),
       name: map['name'] ?? '',
       category: map['category'] ?? '',
-      basePrice: (map['base_price'] is num) ? (map['base_price'] as num).toDouble() : double.tryParse('${map['base_price']}') ?? 0.0,
+      basePrice: (map['base_price'] is num) ? (map['base_price'] as num).toInt() : int.tryParse('${map['base_price']}') ?? 0,
       baseUnit: map['base_unit'] ?? '',
       stock: (map['stock'] is num) ? (map['stock'] as num).toInt() : int.tryParse('${map['stock']}') ?? 0,
       imageUrl: map['image_url'],
@@ -64,7 +64,7 @@ class AdminProduct {
     String? id,
     String? name,
     String? category,
-    double? basePrice,
+    int? basePrice,
     String? baseUnit,
     int? stock,
     String? imageUrl,

@@ -73,8 +73,8 @@ XlsxParseResult parseXlsxBytes(Uint8List bytes) {
       if (name.isEmpty) throw FormatException('Row ${r + 1}: "name" is required');
       if (category.isEmpty) throw FormatException('Row ${r + 1}: "category" is required');
 
-      final basePrice = double.tryParse(basePriceRaw) ?? (basePriceRaw.isEmpty ? 0.0 : double.nan);
-      if (basePrice.isNaN) throw FormatException('Row ${r + 1}: "base_price" is invalid');
+      final basePrice = int.tryParse(basePriceRaw) ?? (basePriceRaw.isEmpty ? 0 : -999999);
+      if (basePrice == -999999) throw FormatException('Row ${r + 1}: "base_price" is invalid');
 
       final stock = int.tryParse(stockRaw) ?? (stockRaw.isEmpty ? 0 : -999999);
       if (stock == -999999) throw FormatException('Row ${r + 1}: "stock" is invalid');

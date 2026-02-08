@@ -165,7 +165,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${p.category} • ${p.basePrice.toStringAsFixed(2)} / ${p.baseUnit}'),
+            Text('${p.category} • ${p.basePrice} / ${p.baseUnit}'),
             Text('Stock: ${p.stock}'),
             if (p.isOutOfStock || p.stock <= 0)
               Padding(
