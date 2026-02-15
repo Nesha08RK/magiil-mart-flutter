@@ -371,18 +371,19 @@ class ProductCard extends StatefulWidget {
 }
 
 class _ProductCardState extends State<ProductCard> {
-  late String selectedUnit;
+  String? selectedUnit;
   int selectedQuantity = 1;
 
   @override
   void initState() {
     super.initState();
-    selectedUnit = widget.units.isNotEmpty ? widget.units.first : '1';
+    selectedUnit = widget.units.isNotEmpty ? widget.units.first : null;
   }
 
   @override
   Widget build(BuildContext context) {
-    final unitConversion = getUnitConversion(widget.baseUnit, selectedUnit);
+    final effectiveUnit = selectedUnit ?? widget.baseUnit;
+    final unitConversion = getUnitConversion(widget.baseUnit, effectiveUnit);
     final unitPrice = (widget.basePrice * unitConversion).toInt();
 
     return Consumer<CartProvider>(
@@ -597,13 +598,15 @@ class _ProductCardState extends State<ProductCard> {
                                 color: const Color(0xFFFAF9F7),
                               ),
                               padding: const EdgeInsets.symmetric(horizontal: 8),
-                              height: 32,
+                              height: 30,
                               child: DropdownButton<String>(
-                                value: selectedUnit,
+                                value: widget.units.contains(selectedUnit)
+                                    ? selectedUnit
+                                    : (widget.units.isNotEmpty ? widget.units.first : null),
                                 isExpanded: true,
                                 underline: const SizedBox(),
                                 disabledHint: Text(
-                                  selectedUnit,
+                                  selectedUnit ?? '',
                                   style: const TextStyle(fontSize: 11),
                                 ),
                                 icon: const Icon(
@@ -658,7 +661,7 @@ class _ProductCardState extends State<ProductCard> {
                                         child: InkWell(
                                           onTap: count > 0
                                               ? () {
-                                                  cart.decreaseItem(widget.name, selectedUnit);
+                                                  cart.decreaseItem(widget.name, selectedUnit ?? widget.baseUnit);
                                                 }
                                               : null,
                                           child: Center(
@@ -696,7 +699,7 @@ class _ProductCardState extends State<ProductCard> {
                                               name: widget.name,
                                               basePrice: widget.basePrice,
                                               baseUnit: widget.baseUnit,
-                                              selectedUnit: selectedUnit,
+                                              selectedUnit: selectedUnit ?? widget.baseUnit,
                                               unitConversion: unitConversion,
                                             );
                                           },
