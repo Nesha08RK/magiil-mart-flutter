@@ -18,14 +18,14 @@ dependencies:
   # Supabase (Auth + Database)
   supabase_flutter: ^2.8.1
 
-  # File & Excel handling (FIXED)
+  # File & Excel handling
   file_picker: ^8.0.0
   excel: ^4.0.2
 
-  # ✅ Cart persistence
+  # Cart persistence
   shared_preferences: ^2.2.0
 
-  # 🖼️ Image picker for profile
+  # Image picker
   image_picker: ^1.0.0
 
   # Icons
@@ -39,3 +39,8 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # ✅ ASSETS (THIS WAS MISSING)
+  assets:
+    - assets/images/banners/
+    - assets/images/categories/
