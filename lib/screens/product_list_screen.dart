@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/cart_provider.dart';
+import 'customer/product_details_screen.dart';
 import 'services/customer_product_service.dart';
 
 // Helper function to calculate unit conversion ratio
@@ -306,13 +307,16 @@ class _ProductListScreenState extends State<ProductListScreen> {
                                 return const SizedBox.shrink();
                               }
                               return ProductCard(
+                                productId: product.id ?? '',
                                 name: product.name,
+                                category: product.category,
                                 basePrice: product.basePrice.toInt(),
                                 baseUnit: product.baseUnit,
                                 imageUrl: product.imageUrl,
                                 icon: Icons.shopping_bag,
                                 isOutOfStock: product.isOutOfStock,
                                 stock: product.stock,
+                                description: product.description,
                                 units: _getUnitsForBaseUnit(product.baseUnit),
                               );
                             },
@@ -346,6 +350,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
 class ProductCard extends StatefulWidget {
   final String name;
+  final String category;
   final int basePrice;
   final String baseUnit;
   final String? imageUrl;
@@ -353,10 +358,13 @@ class ProductCard extends StatefulWidget {
   final List<String> units;
   final bool isOutOfStock;
   final int stock;
+  final String? productId;
+  final String? description;
 
   const ProductCard({
     super.key,
     required this.name,
+    required this.category,
     required this.basePrice,
     required this.baseUnit,
     this.imageUrl,
@@ -364,6 +372,8 @@ class ProductCard extends StatefulWidget {
     required this.units,
     required this.isOutOfStock,
     required this.stock,
+    this.productId,
+    this.description,
   });
 
   @override
@@ -394,10 +404,30 @@ class _ProductCardState extends State<ProductCard> {
 
         final count = item.isEmpty ? 0 : item.first.quantity;
 
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ProductDetailsScreen(
+                  productId: widget.productId ?? '',
+                  name: widget.name,
+                  category: widget.category,
+                  basePrice: widget.basePrice.toDouble(),
+                  baseUnit: widget.baseUnit,
+                  stock: widget.stock,
+                  imageUrl: widget.imageUrl,
+                  isOutOfStock: widget.isOutOfStock,
+                  units: widget.units,
+                  description: widget.description,
+                ),
+              ),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.08),
@@ -745,6 +775,7 @@ class _ProductCardState extends State<ProductCard> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );
