@@ -58,16 +58,21 @@ class _EditProductDialogState extends State<EditProductDialog> {
 
       final price = int.parse(_priceController.text);
       final stock = int.parse(_stockController.text);
+      final productId = widget.product.id;
+
+      if (productId == null || productId.isEmpty) {
+        throw Exception('Product ID is missing');
+      }
 
       await _adminService.updateProduct(
-        productId: widget.product.id, // ✅ UUID, NOT STRING
+        productId: productId, // ✅ UUID, NOT STRING
         name: _nameController.text.trim(),
         basePrice: price,
         baseUnit: _selectedUnit,
       );
 
       await _adminService.updateProductStock(
-        productId: widget.product.id,
+        productId: productId,
         newStock: stock,
       );
 
