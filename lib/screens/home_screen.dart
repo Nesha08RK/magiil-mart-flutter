@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'product_list_screen.dart';
+import 'widgets/delivery_address_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -75,7 +76,15 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+            // 📍 DELIVERY ADDRESS WIDGET (Top)
+            DeliveryAddressWidget(
+              onAddressChanged: () {
+                // Refresh UI if needed
+                setState(() {});
+              },
+            ),
+
+            const SizedBox(height: 8),
             // Search bar (tap to open product list)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
