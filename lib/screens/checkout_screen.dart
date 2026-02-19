@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../providers/cart_provider.dart';
+import '../utils/delivery_utils.dart';
 import 'services/profile_readonly_service.dart';
 import 'checkout/osm_address_picker.dart';
 
@@ -19,6 +21,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _loadingProfile = true;
   double? _deliveryLatitude;
   double? _deliveryLongitude;
+  int _deliveryFee = 0;
+  double? _deliveryDistanceKm;
   
   final _customerNameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -150,6 +154,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // Store coordinates for order placement
       _deliveryLatitude = result['lat'] as double?;
       _deliveryLongitude = result['lng'] as double?;
+
+      // Calculate delivery fee based on distance
+      if (_deliveryLatitude != null && _deliveryLongitude != null) {
+        final distanceKm = DeliveryDistanceCalculator.getDistanceFromStore(
+          _deliveryLatitude!,
+          _deliveryLongitude!,
+        );
+        setState(() {
+          _deliveryDistanceKm = distanceKm;
+          _deliveryFee = DeliveryFeeCalculator.calculateDeliveryFee(distanceKm);
+        });
+      }
+
+      // Save address to SharedPreferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('last_delivery_address', result['address'] ?? '');
+        await prefs.setDouble('last_delivery_lat', _deliveryLatitude ?? 0.0);
+        await prefs.setDouble('last_delivery_lng', _deliveryLongitude ?? 0.0);
+      } catch (_) {}
       
       // Show confirmation snackbar
       if (!mounted) return;
@@ -228,17 +252,41 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    // ✅ DELIVERY VALIDATION (Distance + Store Hours)
+    final validationResult = DeliveryValidator.validateDelivery(
+      _deliveryLatitude,
+      _deliveryLongitude,
+    );
+
+    if (!validationResult.isValid) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(validationResult.message),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isPlacingOrder = true);
 
     try {
       // Get user email
       final userEmail = user.email ?? 'unknown@email.com';
+      
+      // Calculate total with delivery fee
+      final subtotal = cart.totalAmount;
+      final deliveryFee = validationResult.deliveryFee ?? _deliveryFee;
+      final totalWithDeliveryFee = subtotal + deliveryFee;
 
       final payload = {
         'user_id': user.id,
         'user_email': userEmail,
         'items': cart.items.map((item) => item.toMap()).toList(),
-        'total_amount': cart.totalAmount,
+        'subtotal_amount': subtotal,
+        'delivery_fee': deliveryFee,
+        'total_amount': totalWithDeliveryFee,
         'status': 'Placed',
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'delivery_name': _customerNameController.text.trim(),
@@ -246,27 +294,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'delivery_address': _addressController.text.trim(),
         'delivery_city': _cityController.text.trim(),
         'delivery_pincode': _pincodeController.text.trim(),
-        // Add latitude and longitude if available from map picker
-        if (_deliveryLatitude != null) 'delivery_latitude': _deliveryLatitude,
-        if (_deliveryLongitude != null) 'delivery_longitude': _deliveryLongitude,
+        'delivery_latitude': _deliveryLatitude,
+        'delivery_longitude': _deliveryLongitude,
+        'delivery_distance_km': validationResult.distanceKm,
       };
       try {
         await supabase.from('orders').insert(payload);
       } catch (e) {
         final msg = e.toString();
-        if (msg.contains('column') || msg.contains('does not exist') || msg.contains('delivery_latitude')) {
-          // Fallback: remove lat/lng if columns don't exist
+        // Fallback: try without new columns
+        if (msg.contains('column') || msg.contains('does not exist')) {
           await supabase.from('orders').insert({
             'user_id': user.id,
             'user_email': userEmail,
             'customer_name': _customerNameController.text.trim(),
             'phone_number': _phoneController.text.trim(),
             'delivery_address': _addressController.text.trim(),
-            'total_amount': cart.totalAmount,
+            'total_amount': totalWithDeliveryFee,
             'status': 'Placed',
             'created_at': DateTime.now().toUtc().toIso8601String(),
             'items': cart.items.map((item) => item.toMap()).toList(),
-            // Note: Not including delivery_latitude/longitude here to support older schemas
           });
         } else {
           rethrow;
@@ -312,6 +359,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         title: const Text('Checkout'),
         centerTitle: true,
+        elevation: 0,
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.deepPurple.shade400,
+                Colors.deepPurple.shade600,
+              ],
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: Icon(_editing ? Icons.lock_open : Icons.edit),
@@ -331,6 +389,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ⏰ STORE STATUS INDICATOR
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: StoreAvailabilityChecker.isStoreOpen()
+                          ? Colors.green.shade50
+                          : Colors.red.shade50,
+                      border: Border.all(
+                        color: StoreAvailabilityChecker.isStoreOpen()
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            StoreAvailabilityChecker.getStoreStatus(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: StoreAvailabilityChecker.isStoreOpen()
+                                  ? Colors.green.shade700
+                                  : Colors.red.shade700,
+                            ),
+                          ),
+                        ),
+                        if (!StoreAvailabilityChecker.isStoreOpen())
+                          Text(
+                            StoreAvailabilityChecker.getStoreHoursMessage(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
                   // 🛒 CART ITEMS
                   const Text(
                     'Order Items',
@@ -463,21 +563,99 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
                   const SizedBox(height: 24),
 
-                  // 💰 TOTAL
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Total',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        '₹${cart.totalAmount.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  // 💰 PRICE BREAKDOWN
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        // Subtotal
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Subtotal',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              '₹${cart.totalAmount.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // Delivery Fee
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Delivery Fee',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                                if (_deliveryDistanceKm != null)
+                                  Text(
+                                    '(${_deliveryDistanceKm!.toStringAsFixed(2)} km)',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            Text(
+                              _deliveryFee > 0
+                                  ? '₹${_deliveryFee.toString()}'
+                                  : 'TBD',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(height: 1),
+                        const SizedBox(height: 12),
+                        // Total
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Total',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              '₹${(cart.totalAmount + _deliveryFee).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.deepPurple,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -487,17 +665,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: _isPlacingOrder ? null : _placeOrder,
+                      onPressed: (StoreAvailabilityChecker.isStoreOpen() && !_isPlacingOrder)
+                          ? _placeOrder
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.deepPurple,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                      ),
                       child: _isPlacingOrder
                           ? const CircularProgressIndicator(
                               color: Colors.white,
                               strokeWidth: 2,
                             )
-                          : const Text(
-                              'Place Order',
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold),
+                          : Text(
+                              StoreAvailabilityChecker.isStoreOpen()
+                                  ? 'Place Order'
+                                  : 'Store Closed',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                     ),
                   ),
