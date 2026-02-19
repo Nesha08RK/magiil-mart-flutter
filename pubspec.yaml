@@ -31,6 +31,15 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
+  # 🌍 OpenStreetMap & Location Services
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.1
+  geocoding: ^2.1.0
+  geolocator: ^10.1.0
+
+  # 🌐 HTTP for Nominatim reverse geocoding (IMPORTANT)
+  http: ^1.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -40,7 +49,6 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # ✅ ASSETS (THIS WAS MISSING)
   assets:
     - assets/images/banners/
     - assets/images/categories/

@@ -10,6 +10,7 @@ class CustomerProduct {
   final int stock;
   final String? imageUrl;
   final bool isOutOfStock;
+  final String? description;
 
   CustomerProduct({
     this.id,
@@ -20,6 +21,7 @@ class CustomerProduct {
     required this.stock,
     this.imageUrl,
     this.isOutOfStock = false,
+    this.description,
   });
 
   factory CustomerProduct.fromMap(Map<String, dynamic> map) {
@@ -32,6 +34,7 @@ class CustomerProduct {
       stock: (map['stock'] is num) ? (map['stock'] as num).toInt() : int.tryParse('${map['stock']}') ?? 0,
       imageUrl: map['image_url'],
       isOutOfStock: (map['is_out_of_stock'] is bool) ? map['is_out_of_stock'] : '${map['is_out_of_stock']}' == 'true',
+      description: map['description'],
     );
   }
 }
@@ -111,6 +114,23 @@ class CustomerProductService {
           .toList();
     } catch (e) {
       throw Exception('Failed to search products: $e');
+    }
+  }
+
+  /// Get product details by ID
+  Future<CustomerProduct?> getProductDetails(String productId) async {
+    try {
+      final data = await _supabase
+          .from('products')
+          .select()
+          .eq('id', productId)
+          .limit(1) as List<dynamic>;
+
+      if (data.isEmpty) return null;
+
+      return CustomerProduct.fromMap(Map<String, dynamic>.from(data.first as Map));
+    } catch (e) {
+      throw Exception('Failed to fetch product details: $e');
     }
   }
 }

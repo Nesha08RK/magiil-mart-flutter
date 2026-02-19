@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../providers/cart_provider.dart';
 import 'services/profile_readonly_service.dart';
+import 'checkout/osm_address_picker.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -16,6 +17,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isPlacingOrder = false;
   bool _editing = false;
   bool _loadingProfile = true;
+  double? _deliveryLatitude;
+  double? _deliveryLongitude;
   
   final _customerNameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -131,6 +134,34 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  /// Open OSM map picker for address selection
+  Future<void> _openMapPicker() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const OSMAddressPicker(),
+        fullscreenDialog: true,
+      ),
+    );
+
+    if (result != null) {
+      // Update address field with selected address
+      _addressController.text = result['address'] ?? '';
+      // Store coordinates for order placement
+      _deliveryLatitude = result['lat'] as double?;
+      _deliveryLongitude = result['lng'] as double?;
+      
+      // Show confirmation snackbar
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Address updated: ${result['address']}'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   Future<void> _placeOrder() async {
     final cart = Provider.of<CartProvider>(context, listen: false);
     final supabase = Supabase.instance.client;
@@ -215,12 +246,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'delivery_address': _addressController.text.trim(),
         'delivery_city': _cityController.text.trim(),
         'delivery_pincode': _pincodeController.text.trim(),
+        // Add latitude and longitude if available from map picker
+        if (_deliveryLatitude != null) 'delivery_latitude': _deliveryLatitude,
+        if (_deliveryLongitude != null) 'delivery_longitude': _deliveryLongitude,
       };
       try {
         await supabase.from('orders').insert(payload);
       } catch (e) {
         final msg = e.toString();
-        if (msg.contains('column') || msg.contains('does not exist')) {
+        if (msg.contains('column') || msg.contains('does not exist') || msg.contains('delivery_latitude')) {
+          // Fallback: remove lat/lng if columns don't exist
           await supabase.from('orders').insert({
             'user_id': user.id,
             'user_email': userEmail,
@@ -231,6 +266,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             'status': 'Placed',
             'created_at': DateTime.now().toUtc().toIso8601String(),
             'items': cart.items.map((item) => item.toMap()).toList(),
+            // Note: Not including delivery_latitude/longitude here to support older schemas
           });
         } else {
           rethrow;
@@ -365,17 +401,39 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const SizedBox(height: 12),
                   
-                  TextField(
-                    controller: _addressController,
-                    maxLines: 3,
-                    decoration: InputDecoration(
-                      labelText: 'Delivery Address',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  // 📍 ADDRESS WITH MAP PICKER
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _addressController,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Delivery Address',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            prefixIcon: const Icon(Icons.location_on),
+                          ),
+                          readOnly: !_editing,
+                        ),
                       ),
-                      prefixIcon: const Icon(Icons.location_on),
-                    ),
-                    readOnly: !_editing,
+                      const SizedBox(width: 12),
+                      // 🗺️ MAP PICKER BUTTON
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.map, color: Colors.blue),
+                            onPressed: _openMapPicker,
+                            tooltip: 'Pick on Map',
+                          ),
+                          const Text(
+                            'Map',
+                            style: TextStyle(fontSize: 10),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   TextField(

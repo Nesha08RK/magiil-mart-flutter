@@ -6,6 +6,8 @@ class AdminOrder {
   final String? customerName; // ✅ NEW
   final String? phoneNumber; // ✅ NEW
   final String? deliveryAddress; // ✅ NEW
+  final double? deliveryLatitude; // ✅ NEW - Map coordinates
+  final double? deliveryLongitude; // ✅ NEW - Map coordinates
   final double totalAmount;
   final String status;
   final List<OrderItem> items;
@@ -19,6 +21,8 @@ class AdminOrder {
     this.customerName,
     this.phoneNumber,
     this.deliveryAddress,
+    this.deliveryLatitude,
+    this.deliveryLongitude,
     required this.totalAmount,
     required this.status,
     required this.items,
@@ -35,6 +39,12 @@ class AdminOrder {
       customerName: map['customer_name'] as String?,
       phoneNumber: map['phone_number'] as String?,
       deliveryAddress: map['delivery_address'] as String?,
+      deliveryLatitude: (map['delivery_latitude'] is num) 
+          ? (map['delivery_latitude'] as num).toDouble() 
+          : (map['delivery_latitude'] is String ? double.tryParse(map['delivery_latitude']) : null),
+      deliveryLongitude: (map['delivery_longitude'] is num) 
+          ? (map['delivery_longitude'] as num).toDouble() 
+          : (map['delivery_longitude'] is String ? double.tryParse(map['delivery_longitude']) : null),
       totalAmount: (map['total_amount'] is num) ? (map['total_amount'] as num).toDouble() : double.tryParse('${map['total_amount']}') ?? 0.0,
       status: map['status'] ?? 'Placed',
       items: (map['items'] is List)
@@ -60,6 +70,8 @@ class AdminOrder {
       'customer_name': customerName,
       'phone_number': phoneNumber,
       'delivery_address': deliveryAddress,
+      'delivery_latitude': deliveryLatitude,
+      'delivery_longitude': deliveryLongitude,
       'total_amount': totalAmount,
       'status': status,
       'items': items.map((e) => e.toMap()).toList(),
@@ -94,6 +106,8 @@ class AdminOrder {
     String? customerName,
     String? phoneNumber,
     String? deliveryAddress,
+    double? deliveryLatitude,
+    double? deliveryLongitude,
     double? totalAmount,
     String? status,
     List<OrderItem>? items,
@@ -107,6 +121,8 @@ class AdminOrder {
       customerName: customerName ?? this.customerName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
+      deliveryLatitude: deliveryLatitude ?? this.deliveryLatitude,
+      deliveryLongitude: deliveryLongitude ?? this.deliveryLongitude,
       totalAmount: totalAmount ?? this.totalAmount,
       status: status ?? this.status,
       items: items ?? this.items,
