@@ -15,27 +15,20 @@ class OSMAddressPicker extends StatefulWidget {
   State<OSMAddressPicker> createState() => _OSMAddressPickerState();
 }
 
-/* ================== ERODE BOUNDARY ================== */
+/* ================== DELIVERY RADIUS ================== */
 
-class _ErodeServiceBoundary {
-  static const double northBound = 11.60;
-  static const double southBound = 11.00;
-  static const double eastBound = 78.00;
-  static const double westBound = 77.40;
-  static const LatLng center = LatLng(11.3441, 77.7064);
+// Store (Magiil Mart Pallipalayam) location and permitted radius.
+const _storeLocation = LatLng(11.370291017690395, 77.74846875459853);
+const _deliveryRadiusKm = 10.0;
 
-  static bool isWithinBounds(LatLng location) {
-    return location.latitude >= southBound &&
-        location.latitude <= northBound &&
-        location.longitude >= westBound &&
-        location.longitude <= eastBound;
-  }
-
-  static LatLng snapToBounds(LatLng location) {
-    final lat = location.latitude.clamp(southBound, northBound);
-    final lng = location.longitude.clamp(westBound, eastBound);
-    return LatLng(lat, lng);
-  }
+bool _isWithinRadius(LatLng location) {
+  final dist = Distance();
+  final km = dist.as(
+    LengthUnit.Kilometer,
+    _storeLocation,
+    location,
+  );
+  return km <= _deliveryRadiusKm;
 }
 
 /* ================== STATE ================== */
@@ -57,9 +50,9 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
     _mapController = MapController();
 
     _selectedLocation = widget.initialLocation != null &&
-            _ErodeServiceBoundary.isWithinBounds(widget.initialLocation!)
+            _isWithinRadius(widget.initialLocation!)
         ? widget.initialLocation!
-        : _ErodeServiceBoundary.center;
+        : _storeLocation;
 
     _reverseGeocode(_selectedLocation);
   }
@@ -156,11 +149,11 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
 
     final newLocation = LatLng(position.latitude, position.longitude);
 
-    if (!_ErodeServiceBoundary.isWithinBounds(newLocation)) {
+    if (!_isWithinRadius(newLocation)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text("📍 Delivery available only in Erode district")),
+            content: Text(
+                "Delivery available within 10 km of Magiil Mart (Pallipalayam)")),
       );
       setState(() => _isLoadingAddress = false);
       return;
@@ -179,30 +172,17 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
     final center = position.center;
     if (center == null) return;
 
-    if (!_ErodeServiceBoundary.isWithinBounds(center)) {
-      final snapped =
-          _ErodeServiceBoundary.snapToBounds(center);
-
-      _mapController.move(
-        snapped,
-        position.zoom ?? _mapController.camera.zoom,
-      );
-
-      if (!_isOutOfBounds) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text(
-                  "📍 Delivery available only in Erode district")),
-        );
-      }
-
-      setState(() => _isOutOfBounds = true);
-      return;
+    // always update location so address follows map even when outside
+    final outside = !_isWithinRadius(center);
+    if (outside && !_isOutOfBounds) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Delivery available within 10 km of Magiil Mart (Pallipalayam)")));
     }
 
     setState(() {
       _selectedLocation = center;
-      _isOutOfBounds = false;
+      _isOutOfBounds = outside;
     });
 
     _lastGeocodeRequest = DateTime.now();
@@ -219,6 +199,12 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
   }
 
   void _confirmLocation() {
+    if (_isOutOfBounds) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              "Delivery available within 10 km of Magiil Mart (Pallipalayam)")));
+      return;
+    }
     Navigator.pop(context, {
       "address": _selectedAddress,
       "lat": _selectedLocation.latitude,
@@ -247,6 +233,19 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
               onPositionChanged: _onMapMove,
             ),
             children: [
+              // visual delivery radius circle
+              CircleLayer(
+                circles: [
+                  CircleMarker(
+                    point: _storeLocation,
+                    radius: _deliveryRadiusKm * 1000, // meters
+                    useRadiusInMeter: true,
+                    color: Colors.blue.withOpacity(0.1),
+                    borderColor: Colors.blue,
+                    borderStrokeWidth: 2,
+                  ),
+                ],
+              ),
               TileLayer(
                 urlTemplate:
                     "https://tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png",
@@ -335,7 +334,7 @@ class _OSMAddressPickerState extends State<OSMAddressPicker> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _confirmLocation,
+                      onPressed: _isOutOfBounds ? null : _confirmLocation,
                       child: const Text("Confirm Location"),
                     ),
                   )
