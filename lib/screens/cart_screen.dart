@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/cart_provider.dart';
 import 'checkout_screen.dart';
 
@@ -93,25 +94,47 @@ class CartScreen extends StatelessWidget {
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Product Icon
+                                  // Product Image
                                   Container(
                                     width: 60,
                                     height: 60,
                                     decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Color(0xFF6B3E5E),
-                                          Color(0xFF8B5A7E),
-                                        ],
-                                      ),
+                                      color: Colors.grey.shade200,
                                       borderRadius: BorderRadius.circular(12),
                                     ),
-                                    child: Icon(
-                                      Icons.shopping_bag,
-                                      size: 28,
-                                      color: Colors.white.withOpacity(0.8),
+                                    clipBehavior: Clip.hardEdge,
+                                    child: FutureBuilder<Map<String, dynamic>?>(
+                                      future: Supabase.instance.client
+                                          .from('products')
+                                          .select('image_url')
+                                          .eq('name', item.name)
+                                          .maybeSingle(),
+                                      builder: (context, snapshot) {
+                                        if (snapshot.connectionState ==
+                                            ConnectionState.waiting) {
+                                          return const Center(
+                                              child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ));
+                                        }
+                                        final data = snapshot.data;
+                                        final imageUrl = data != null
+                                            ? data['image_url'] as String?
+                                            : null;
+                                        if (imageUrl != null &&
+                                            imageUrl.isNotEmpty) {
+                                          return Image.network(
+                                            imageUrl,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => const
+                                                Icon(Icons.broken_image),
+                                          );
+                                        }
+                                        return const Icon(
+                                          Icons.shopping_bag,
+                                          color: Colors.grey,
+                                        );
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 14),
