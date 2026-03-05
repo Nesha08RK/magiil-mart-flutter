@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'signup_screen.dart';
+import '../admin/admin_analytics_screen.dart';
+import '../main_navigation.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -24,9 +26,21 @@ class _LoginScreenState extends State<LoginScreen> {
         password: passwordController.text.trim(),
       );
 
-      // ✅ IMPORTANT:
-      // ❌ DO NOT navigate here
-      // ✅ main.dart StreamBuilder will auto-handle routing
+      // After successful sign-in explicitly navigate so admin users
+      // land on the AdminDashboard immediately (avoids race with stream).
+      final user = Supabase.instance.client.auth.currentUser;
+      if (!mounted) return;
+      if (user != null && (user.email ?? '').toLowerCase() == 'admin@magiilmart.com') {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AdminAnalyticsScreen()),
+          (route) => false,
+        );
+      } else {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const MainNavigation()),
+          (route) => false,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
