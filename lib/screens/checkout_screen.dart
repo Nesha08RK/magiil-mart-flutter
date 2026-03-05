@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../providers/cart_provider.dart';
 import '../utils/delivery_utils.dart';
 import 'services/profile_readonly_service.dart';
 import 'checkout/osm_address_picker.dart';
+
+// brand colour
+const Color _plum = Color(0xFF5A2E4A);
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -357,19 +359,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Checkout'),
-        centerTitle: true,
-        elevation: 0,
-        flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.deepPurple.shade400,
-                Colors.deepPurple.shade600,
-              ],
-            ),
-          ),
+        backgroundColor: Colors.white,
+        title: const Text(
+          'Checkout',
+          style: TextStyle(color: Color(0xFF2C2C2C)),
         ),
+        centerTitle: true,
+        elevation: 2,
+        iconTheme: const IconThemeData(color: Color(0xFF2C2C2C)),
+        actionsIconTheme: const IconThemeData(color: Color(0xFF2C2C2C)),
         actions: [
           IconButton(
             icon: Icon(_editing ? Icons.lock_open : Icons.edit),
@@ -470,7 +468,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // 👤 CUSTOMER DETAILS FORM
                   const Text(
                     'Delivery Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _plum),
                   ),
                   const SizedBox(height: 12),
                   
@@ -480,6 +478,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       labelText: 'Full Name',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _plum),
                       ),
                       prefixIcon: const Icon(Icons.person),
                     ),
@@ -494,6 +496,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       labelText: 'Phone Number',
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _plum),
                       ),
                       prefixIcon: const Icon(Icons.phone),
                     ),
@@ -512,6 +518,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             labelText: 'Delivery Address',
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(8),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: _plum),
                             ),
                             prefixIcon: const Icon(Icons.location_on),
                           ),
@@ -543,6 +553,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _plum),
+                      ),
                       prefixIcon: const Icon(Icons.location_city),
                     ),
                     readOnly: !_editing,
@@ -556,6 +570,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _plum),
+                      ),
                       prefixIcon: const Icon(Icons.markunread_mailbox),
                     ),
                     readOnly: !_editing,
@@ -567,9 +585,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: _plum.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
+                      border: Border.all(color: _plum.withOpacity(0.3)),
                     ),
                     child: Column(
                       children: [
@@ -649,7 +667,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple,
+                                color: _plum,
                               ),
                             ),
                           ],
@@ -669,7 +687,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           ? _placeOrder
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
+                        backgroundColor: _plum,
                         disabledBackgroundColor: Colors.grey.shade300,
                       ),
                       child: _isPlacingOrder
