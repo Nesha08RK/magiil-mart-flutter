@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/admin_product_service.dart';
 import '../services/admin_orders_service.dart';
+import '../../widgets/admin_drawer.dart' as admin_drawer;
 
 /// Admin analytics screen showing business metrics - NOW WITH REAL-TIME UPDATES
 class AdminAnalyticsScreen extends StatefulWidget {
@@ -127,6 +128,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         title: const Text('Admin - Analytics (Live)'),
         centerTitle: true,
       ),
+      drawer: const admin_drawer.AdminDrawer(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
