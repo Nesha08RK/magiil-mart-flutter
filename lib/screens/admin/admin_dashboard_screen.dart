@@ -5,11 +5,13 @@ import '../../models/admin_product.dart';
 import '../services/admin_product_service.dart';
 import '../splash_screen.dart';
 import 'import_xlsx_screen.dart';
-import 'admin_orders_screen.dart';
-import 'admin_analytics_screen.dart';
+// previous imports for navigation are no longer required; we push screens via the shared drawer
+import '../../widgets/admin_drawer.dart' as admin_drawer;
 
 /// Admin dashboard screen showing product counts and list.
 class AdminDashboardScreen extends StatefulWidget {
+  static const String routeName = '/admin/dashboard';
+
   const AdminDashboardScreen({Key? key}) : super(key: key);
 
   @override
@@ -217,7 +219,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           )
         ],
       ),
-      drawer: _buildDrawer(),
+      drawer: const admin_drawer.AdminDrawer(),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -311,78 +313,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        children: [
-          const DrawerHeader(
-            decoration: BoxDecoration(
-              color: Color(0xFF5A2E4A),
-            ),
-            child: Text(
-              'Admin Panel',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.shopping_bag),
-            title: const Text('Products'),
-            onTap: () {
-              Navigator.of(context).pop();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.receipt),
-            title: const Text('Orders'),
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdminOrdersScreen()),
-              );
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.analytics),
-            title: const Text('Analytics'),
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AdminAnalyticsScreen()),
-              );
-            },
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-            onTap: () async {
-              await _logout();
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  // drawer implementation moved to reusable widget
 
-  Future<void> _logout() async {
-    try {
-      await Supabase.instance.client.auth.signOut();
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const SplashScreen()),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Logout failed: $e')),
-        );
-      }
-    }
-  }
 }

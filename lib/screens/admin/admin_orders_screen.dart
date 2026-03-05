@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_order.dart';
 import '../services/admin_orders_service.dart';
+import '../../widgets/admin_drawer.dart' as admin_drawer;
 
 /// Admin orders screen showing all customer orders.
 class AdminOrdersScreen extends StatefulWidget {
@@ -262,6 +263,7 @@ class _AdminOrdersScreenState extends State<AdminOrdersScreen> {
         title: const Text('Admin - Orders'),
         elevation: 0,
       ),
+      drawer: const admin_drawer.AdminDrawer(),
       body: StreamBuilder<List<Map<String, dynamic>>>(
         stream: supabase
             .from('orders')
