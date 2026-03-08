@@ -4,6 +4,7 @@ import 'dart:io' show File;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../models/admin_product.dart';
 import '../services/admin_product_service.dart';
@@ -148,12 +149,20 @@ class _ImportXlsxScreenState extends State<ImportXlsxScreen> {
                     final p = _preview[i];
                     return ListTile(
                       leading: p.imageUrl != null && p.imageUrl!.isNotEmpty
-                          ? Image.network(
-                              p.imageUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: p.imageUrl!,
                               width: 48,
                               height: 48,
                               fit: BoxFit.cover,
-                              errorBuilder: (ctx, err, stack) => const SizedBox(
+                              memCacheWidth: 300,
+                              placeholder: (c, u) => const SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: Center(
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (ctx, url, err) => const SizedBox(
                                 width: 48,
                                 height: 48,
                                 child: Icon(Icons.broken_image),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'product_list_screen.dart';
 import 'widgets/delivery_address_widget.dart';
@@ -49,7 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildImage(String src) {
     if (src.startsWith('http')) {
-      return Image.network(src, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
+      return CachedNetworkImage(
+        imageUrl: src,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        memCacheWidth: 300,
+        placeholder: (c, u) => const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        errorWidget: (c, u, e) => const Center(
+          child: Icon(Icons.image_not_supported),
+        ),
+      );
     }
     return Image.asset(src, fit: BoxFit.cover, width: double.infinity, height: double.infinity);
   }
@@ -238,7 +251,17 @@ class CategoryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget img;
     if (imagePath.startsWith('http')) {
-      img = Image.network(imagePath, fit: BoxFit.cover);
+      img = CachedNetworkImage(
+        imageUrl: imagePath,
+        fit: BoxFit.cover,
+        memCacheWidth: 300,
+        placeholder: (c, u) => const Center(
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+        errorWidget: (c, u, e) => const Center(
+          child: Icon(Icons.image_not_supported),
+        ),
+      );
     } else {
       img = Image.asset(imagePath, fit: BoxFit.cover);
     }

@@ -24,21 +24,33 @@ CREATE TABLE products (
 
 ## Step 2: Ensure Profiles Table Has Role Column
 
+> **Note:** the app code inserts into a `user_id` column (not the
+> primary key of the row). the database may either use `user_id` as a
+> foreign key to `auth.users(id)` or use `id`/`user_id` together. the
+> important part is that the RLS policies described below check the same
+> column your app writes to.
+
 ### Option A: If profiles table doesn't exist yet
 ```sql
+-- simplest schema used by the current codebase
 CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),  -- internal PK
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'customer',
+  email TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
+(The `user_id` column is the one populated by the Flutter client; some
+older examples use `id` directly, but the policy below assumes
+`user_id`.)
+
 ### Option B: If profiles table exists (add role column)
 ```sql
 ALTER TABLE profiles ADD COLUMN role TEXT NOT NULL DEFAULT 'customer';
 ```
-
 ## Step 3: Set Up Row Level Security (RLS)
 
 ### Enable RLS on products table
@@ -86,22 +98,23 @@ CREATE POLICY customer_read ON products
 ```sql
 CREATE POLICY user_read_own_profile ON profiles
   FOR SELECT
-  USING (auth.uid() = id);
+  USING (auth.uid() = user_id);
 ```
 
 ### Policy 2: Users can update their own profile
 ```sql
 CREATE POLICY user_update_own_profile ON profiles
   FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 ```
 
 ### Policy 3: Users can insert their own profile
 ```sql
-CREATE POLICY user_insert_profile ON profiles
+-- matches the application code which inserts into the `user_id` column
+CREATE POLICY "users insert own profile" ON profiles
   FOR INSERT
-  WITH CHECK (auth.uid() = id);
+  WITH CHECK (auth.uid() = user_id);
 ```
 
 ## Step 6: Create Auth Trigger for Profiles

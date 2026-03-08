@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 
 import '../../../models/cart_item.dart';
@@ -130,10 +131,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             pinned: true,
             flexibleSpace: FlexibleSpaceBar(
               background: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      widget.imageUrl!,
+                  ? CachedNetworkImage(
+                      imageUrl: widget.imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => _buildPlaceholderImage(),
+                      memCacheWidth: 300,
+                      placeholder: (c, u) => _buildPlaceholderImage(),
+                      errorWidget: (context, url, error) => _buildPlaceholderImage(),
                     )
                   : _buildPlaceholderImage(),
             ),

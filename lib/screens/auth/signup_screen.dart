@@ -43,14 +43,17 @@ class _SignupScreenState extends State<SignupScreen> {
           'role': 'customer', // 👈 DEFAULT ROLE
         });
       } on PostgrestException catch (e) {
-        if (e.message.contains("role")) {
+        final msg = e.message.toLowerCase();
+        if (msg.contains("role")) {
           // missing column; insert minimal profile instead
           await Supabase.instance.client.from('profiles').insert({
             'user_id': user.id,
             'email': user.email,
           });
-        } else if (e.code == '42501' ||
-            e.message.toLowerCase().contains('row-level security')) {
+        } else if (msg.contains('duplicate key') ||
+            msg.contains('profiles_user_id_key')) {
+          // already have a profile row for this user – ignore silently
+        } else if (e.code == '42501' || msg.contains('row-level security')) {
           // blocked by a row-level security policy.  The proper fix is to
           // create a policy allowing anonymous insert of profile rows or
           // perform this action via a trusted server key.  Here we swallow
@@ -69,32 +72,35 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (!mounted) return;
 
-      // Try to sign the user in immediately so we can redirect to home.
+      // we attempt to sign the user in so that the session is available
+      // immediately, but even if this call throws (email confirm required,
+      // network hiccup, RLS policy, etc.) we still navigate to the home
+      // screen. the splash/stream logic will route the user correctly based
+      // on the actual auth state.
       try {
         await Supabase.instance.client.auth.signInWithPassword(
           email: emailController.text.trim(),
           password: passwordController.text.trim(),
         );
-
-        // If sign-in succeeded, navigate to main/home.
-        if (!mounted) return;
-        // replace signup screen with home so it can't be returned to
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainNavigation()),
-        );
-        return;
-      } catch (_) {
-        // If immediate sign-in fails (e.g. confirmation required), fall back
-        // to prompting the user to log in.
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Account created. Please confirm and log in.'),
+      } catch (err) {
+        // sign-in failed, perhaps email confirmation is required; the
+        // user will still be routed to the home screen but we surface
+        // a message so they understand why some features may not work
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Account created (login pending). Please confirm your email or log in again.'),
             duration: Duration(seconds: 3),
-          ),
-        );
-        Navigator.pop(context);
-        return;
+          ));
+        }
       }
+
+      if (!mounted) return;
+      // replace signup screen with home so it can't be returned to
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigation()),
+      );
+      return;
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

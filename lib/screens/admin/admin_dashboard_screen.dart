@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/admin_product.dart';
@@ -151,12 +152,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       elevation: 2,
       child: ListTile(
         leading: p.imageUrl != null && p.imageUrl!.isNotEmpty
-            ? Image.network(
-                p.imageUrl!,
+            ? CachedNetworkImage(
+                imageUrl: p.imageUrl!,
                 width: 56,
                 height: 56,
                 fit: BoxFit.cover,
-                errorBuilder: (ctx, error, stack) => const SizedBox(
+                memCacheWidth: 300,
+                placeholder: (c, u) => const Center(
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+                errorWidget: (ctx, url, err) => const SizedBox(
                   width: 56,
                   height: 56,
                   child: Icon(Icons.broken_image),

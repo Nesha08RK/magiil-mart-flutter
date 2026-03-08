@@ -31,6 +31,9 @@ dependencies:
   # Icons
   cupertino_icons: ^1.0.8
 
+  # Image caching for faster network images
+  cached_network_image: ^3.3.1
+
   # 🌍 OpenStreetMap & Location Services
   flutter_map: ^6.1.0
   latlong2: ^0.9.1

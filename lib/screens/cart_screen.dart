@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../providers/cart_provider.dart';
 import 'checkout_screen.dart';
 
@@ -123,10 +124,15 @@ class CartScreen extends StatelessWidget {
                                             : null;
                                         if (imageUrl != null &&
                                             imageUrl.isNotEmpty) {
-                                          return Image.network(
-                                            imageUrl,
+                                          return CachedNetworkImage(
+                                            imageUrl: imageUrl,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => const
+                                            memCacheWidth: 300,
+                                            placeholder: (c, u) => const Center(
+                                              child:
+                                                  CircularProgressIndicator(strokeWidth: 2),
+                                            ),
+                                            errorWidget: (_, __, ___) => const
                                                 Icon(Icons.broken_image),
                                           );
                                         }
