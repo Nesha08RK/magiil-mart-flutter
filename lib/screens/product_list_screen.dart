@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../providers/cart_provider.dart';
 import 'customer/product_details_screen.dart';
@@ -295,7 +296,12 @@ class _ProductListScreenState extends State<ProductListScreen> {
                             padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
                             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 2,
-                              childAspectRatio: 0.55,
+                              // use a smaller ratio (wider height) so cards have
+                              // plenty of vertical room regardless of content.
+                              // previous attempts increased the ratio and made the
+                              // cards shorter, causing the 17px overflow; dropping to
+                              // 0.50 ensures height is generous on all devices.
+                              childAspectRatio: 0.50,
                               mainAxisSpacing: 12,
                               crossAxisSpacing: 12,
                             ),
@@ -469,21 +475,14 @@ class _ProductCardState extends State<ProductCard> {
                         // Product Image or Fallback Background
                         if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
                           Positioned.fill(
-                            child: Image.network(
-                              widget.imageUrl!,
+                            child: CachedNetworkImage(
+                              imageUrl: widget.imageUrl!,
                               fit: BoxFit.cover,
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: const AlwaysStoppedAnimation<Color>(
-                                      Color(0xFF6B3E5E),
-                                    ),
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
+                              memCacheWidth: 300,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                              errorWidget: (context, url, error) {
                                 return Container(
                                   color: Colors.grey.shade200,
                                   child: Icon(
@@ -580,195 +579,204 @@ class _ProductCardState extends State<ProductCard> {
                 Expanded(
                   flex: 2,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    // minimal vertical padding preserves clickable areas
+                    // while giving maximum room for text and controls.
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Product Name
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2C2C2C),
-                                height: 1.1,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            // Stock info
-                            Text(
-                              'Stock: ${widget.stock} ${widget.baseUnit}',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade500,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // 📊 UNIT DROPDOWN & CONTROLS
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Unit Dropdown
-                            Container(
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: const Color(0xFFE8E3DE),
-                                  width: 1,
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                                color: const Color(0xFFFAF9F7),
-                              ),
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              height: 30,
-                              child: DropdownButton<String>(
-                                value: widget.units.contains(selectedUnit)
-                                    ? selectedUnit
-                                    : (widget.units.isNotEmpty ? widget.units.first : null),
-                                isExpanded: true,
-                                underline: const SizedBox(),
-                                disabledHint: Text(
-                                  selectedUnit ?? '',
-                                  style: const TextStyle(fontSize: 11),
-                                ),
-                                icon: const Icon(
-                                  Icons.expand_more,
-                                  color: Color(0xFF6B3E5E),
-                                  size: 16,
-                                ),
-                                items: widget.units.map((String unit) {
-                                  return DropdownMenuItem<String>(
-                                    value: unit,
-                                    child: Text(
-                                      unit,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w500,
-                                        color: Color(0xFF2C2C2C),
-                                      ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Product Name
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    widget.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF2C2C2C),
+                                      height: 1.1,
                                     ),
-                                  );
-                                }).toList(),
-                                onChanged: widget.isOutOfStock
-                                    ? null
-                                    : (String? newUnit) {
-                                        if (newUnit != null) {
-                                          setState(() {
-                                            selectedUnit = newUnit;
-                                            selectedQuantity = 1;
-                                          });
-                                        }
-                                      },
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-
-                            // Quantity Controls
-                            if (!widget.isOutOfStock)
-                              Container(
-                                height: 30,
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: const Color(0xFFE8E3DE),
-                                    width: 1,
                                   ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    // ➖ Minus Button (Remove from Cart)
-                                    Expanded(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: count > 0
-                                              ? () {
-                                                  cart.decreaseItem(widget.name, selectedUnit ?? widget.baseUnit);
-                                                }
-                                              : null,
-                                          child: Center(
-                                            child: Icon(
-                                              Icons.remove,
-                                              size: 14,
-                                              color: count > 0
-                                                  ? const Color(0xFF6B3E5E)
-                                                  : Colors.grey.shade300,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                  const SizedBox(height: 4),
+                                  // Stock info
+                                  Text(
+                                    'Stock: ${widget.stock} ${widget.baseUnit}',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey.shade500,
+                                      fontWeight: FontWeight.w500,
                                     ),
-                                    // 🔢 Quantity Display (Cart Count)
-                                    Expanded(
-                                      child: Center(
-                                        child: Text(
-                                          count.toString(),
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF2C2C2C),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // ➕ Plus Button (Add to Cart)
-                                    Expanded(
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: InkWell(
-                                          onTap: () {
-                                            cart.addItem(
-                                              name: widget.name,
-                                              basePrice: widget.basePrice,
-                                              baseUnit: widget.baseUnit,
-                                              selectedUnit: selectedUnit ?? widget.baseUnit,
-                                              unitConversion: unitConversion,
-                                            );
-                                          },
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.add,
-                                              size: 14,
-                                              color: Color(0xFF6B3E5E),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                          ],
-                        ),
 
-                        // 💰 Price Display
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '₹ $unitPrice',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFC9A347),
+                              // 📊 UNIT DROPDOWN & CONTROLS
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Unit Dropdown
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: const Color(0xFFE8E3DE),
+                                        width: 1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      color: const Color(0xFFFAF9F7),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    height: 30,
+                                    child: DropdownButton<String>(
+                                      value: widget.units.contains(selectedUnit)
+                                          ? selectedUnit
+                                          : (widget.units.isNotEmpty ? widget.units.first : null),
+                                      isExpanded: true,
+                                      underline: const SizedBox(),
+                                      disabledHint: Text(
+                                        selectedUnit ?? '',
+                                        style: const TextStyle(fontSize: 11),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.expand_more,
+                                        color: Color(0xFF6B3E5E),
+                                        size: 16,
+                                      ),
+                                      items: widget.units.map((String unit) {
+                                        return DropdownMenuItem<String>(
+                                          value: unit,
+                                          child: Text(
+                                            unit,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: Color(0xFF2C2C2C),
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: widget.isOutOfStock
+                                          ? null
+                                          : (String? newUnit) {
+                                              if (newUnit != null) {
+                                                setState(() {
+                                                  selectedUnit = newUnit;
+                                                  selectedQuantity = 1;
+                                                });
+                                              }
+                                            },
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+
+                                  // Quantity Controls
+                                  if (!widget.isOutOfStock)
+                                    Container(
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: const Color(0xFFE8E3DE),
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          // ➖ Minus Button (Remove from Cart)
+                                          Expanded(
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: count > 0
+                                                    ? () {
+                                                        cart.decreaseItem(widget.name, selectedUnit ?? widget.baseUnit);
+                                                      }
+                                                    : null,
+                                                child: Center(
+                                                  child: Icon(
+                                                    Icons.remove,
+                                                    size: 14,
+                                                    color: count > 0
+                                                        ? const Color(0xFF6B3E5E)
+                                                        : Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // 🔢 Quantity Display (Cart Count)
+                                          Expanded(
+                                            child: Center(
+                                              child: Text(
+                                                count.toString(),
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF2C2C2C),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          // ➕ Plus Button (Add to Cart)
+                                          Expanded(
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  cart.addItem(
+                                                    name: widget.name,
+                                                    basePrice: widget.basePrice,
+                                                    baseUnit: widget.baseUnit,
+                                                    selectedUnit: selectedUnit ?? widget.baseUnit,
+                                                    unitConversion: unitConversion,
+                                                  );
+                                                },
+                                                child: const Center(
+                                                  child: Icon(
+                                                    Icons.add,
+                                                    size: 14,
+                                                    color: Color(0xFF6B3E5E),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
                               ),
-                            ),
-                            Text(
-                              'per $selectedUnit',
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: Colors.grey.shade500,
+
+                              // 💰 Price Display
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '₹ $unitPrice',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFFC9A347),
+                                    ),
+                                  ),
+                                  Text(
+                                    'per $selectedUnit',
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
