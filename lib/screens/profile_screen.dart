@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../models/profile.dart';
 import 'splash_screen.dart';
 import 'profile_edit_screen.dart';
+import 'about_screen.dart';
 import 'services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -82,6 +83,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SnackBar(content: Text('Profile updated successfully!')),
       );
     }
+  }
+
+  void _goToAbout() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AboutScreen()),
+    );
   }
 
   void _showHelpDialog() {
@@ -265,6 +273,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const Divider(height: 1),
                             _buildActionTile(
+                              icon: Icons.info,
+                              title: 'About Magiil Mart',
+                              trailing: Icons.arrow_forward_ios,
+                              onTap: _goToAbout,
+                            ),
+                            const Divider(height: 1),
+                            _buildActionTile(
                               icon: Icons.help,
                               title: 'Help & Support',
                               trailing: Icons.arrow_forward_ios,
@@ -315,7 +330,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      print('Error loading avatar: $e');
+      // Use debugPrint for non-production logging
+      debugPrint('Error loading avatar: $e');
     }
 
     // Default avatar
@@ -348,7 +364,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFFC9A347).withOpacity(0.1),
+          color: const Color(0xFFC9A347).withAlpha(25),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(icon, color: const Color(0xFF5A2E4A), size: 20),
