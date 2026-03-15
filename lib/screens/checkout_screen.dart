@@ -3,12 +3,16 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/cart_provider.dart';
+import '../services/payment_service.dart';
 import '../utils/delivery_utils.dart';
 import 'services/profile_readonly_service.dart';
 import 'checkout/osm_address_picker.dart';
+import 'orders_screen.dart';
 
 // brand colour
 const Color _plum = Color(0xFF5A2E4A);
+
+enum _PaymentMethod { razorpay, cod }
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -25,7 +29,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   double? _deliveryLongitude;
   int _deliveryFee = 0;
   double? _deliveryDistanceKm;
-  
+  _PaymentMethod _paymentMethod = _PaymentMethod.razorpay;
+
+  late final PaymentService _paymentService;
+
   final _customerNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -36,6 +43,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _paymentService = PaymentService(
+      onSuccess: _onPaymentSuccess,
+      onError: _onPaymentError,
+      onExternalWallet: _onExternalWallet,
+    );
+    _paymentService.init();
     _loadProfile();
   }
 
@@ -62,6 +75,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   void dispose() {
+    _paymentService.dispose();
     _customerNameController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
@@ -188,169 +202,271 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
-  Future<void> _placeOrder() async {
+  bool _validateCheckoutInputs() {
     final cart = Provider.of<CartProvider>(context, listen: false);
-    final supabase = Supabase.instance.client;
-    final user = supabase.auth.currentUser;
-
     if (_customerNameController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your name')),
       );
-      return;
+      return false;
     }
-    
-    if (_phoneController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your phone number')),
-      );
-      return;
-    }
-    if (!RegExp(r'^[0-9]{10,}$').hasMatch(_phoneController.text.trim())) {
+
+    if (_phoneController.text.isEmpty || !RegExp(r'^[0-9]{10,}$').hasMatch(_phoneController.text.trim())) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid phone number')),
       );
-      return;
+      return false;
     }
-    
+
     if (_addressController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your delivery address')),
       );
-      return;
+      return false;
     }
+
     if (_cityController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter your city')),
       );
-      return;
+      return false;
     }
-    if (_pincodeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your pincode')),
-      );
-      return;
-    }
-    if (!RegExp(r'^\d{6}$').hasMatch(_pincodeController.text.trim())) {
+
+    if (_pincodeController.text.isEmpty || !RegExp(r'^\d{6}$').hasMatch(_pincodeController.text.trim())) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid 6-digit pincode')),
       );
-      return;
-    }
-
-    if (user == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please login first')),
-      );
-      return;
+      return false;
     }
 
     if (cart.items.isEmpty) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Your cart is empty')),
       );
-      return;
+      return false;
     }
 
-    // ✅ DELIVERY VALIDATION (Distance + Store Hours)
     final validationResult = DeliveryValidator.validateDelivery(
       _deliveryLatitude,
       _deliveryLongitude,
     );
 
     if (!validationResult.isValid) {
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(validationResult.message),
           backgroundColor: Colors.red,
         ),
       );
+      return false;
+    }
+
+    return true;
+  }
+
+  Future<void> _handleCheckout() async {
+    if (!_validateCheckoutInputs()) return;
+
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    final cart = Provider.of<CartProvider>(context, listen: false);
+
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login first')),
+      );
       return;
     }
 
-    setState(() => _isPlacingOrder = true);
+    final validationResult = DeliveryValidator.validateDelivery(
+      _deliveryLatitude,
+      _deliveryLongitude,
+    );
+    final deliveryFee = validationResult.deliveryFee ?? _deliveryFee;
+    final totalAmount = cart.totalAmount + deliveryFee;
 
-    try {
-      // Get user email
-      final userEmail = user.email ?? 'unknown@email.com';
-      
-      // Calculate total with delivery fee
-      final subtotal = cart.totalAmount;
-      final deliveryFee = validationResult.deliveryFee ?? _deliveryFee;
-      final totalWithDeliveryFee = subtotal + deliveryFee;
+    setState(() {
+      _isPlacingOrder = true;
+    });
 
-      final payload = {
-        'user_id': user.id,
-        'user_email': userEmail,
-        'items': cart.items.map((item) => item.toMap()).toList(),
-        'subtotal_amount': subtotal,
-        'delivery_fee': deliveryFee,
-        'total_amount': totalWithDeliveryFee,
-        'status': 'Placed',
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-        'delivery_name': _customerNameController.text.trim(),
-        'delivery_phone': _phoneController.text.trim(),
-        'delivery_address': _addressController.text.trim(),
-        'delivery_city': _cityController.text.trim(),
-        'delivery_pincode': _pincodeController.text.trim(),
-        'delivery_latitude': _deliveryLatitude,
-        'delivery_longitude': _deliveryLongitude,
-        'delivery_distance_km': validationResult.distanceKm,
-      };
+    if (_paymentMethod == _PaymentMethod.cod) {
       try {
-        await supabase.from('orders').insert(payload);
+        await _createOrder(
+          paymentMethod: 'cod',
+          paymentStatus: 'pending',
+          paymentData: {},
+        );
+        cart.clearCart();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Order placed successfully (COD).'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OrdersScreen()),
+        );
       } catch (e) {
-        final msg = e.toString();
-        // Fallback: try without new columns
-        if (msg.contains('column') || msg.contains('does not exist')) {
-          await supabase.from('orders').insert({
-            'user_id': user.id,
-            'user_email': userEmail,
-            'customer_name': _customerNameController.text.trim(),
-            'phone_number': _phoneController.text.trim(),
-            'delivery_address': _addressController.text.trim(),
-            'total_amount': totalWithDeliveryFee,
-            'status': 'Placed',
-            'created_at': DateTime.now().toUtc().toIso8601String(),
-            'items': cart.items.map((item) => item.toMap()).toList(),
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to place COD order: $e')),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isPlacingOrder = false;
           });
-        } else {
-          rethrow;
         }
       }
+      return;
+    }
 
-      // Reduce stock for each item
-      await _reduceProductStock(cart.items);
+    // Razorpay path
+    final totalAmountPaise = (totalAmount * 100).round();
+    try {
+      await _paymentService.openCheckout(
+        key: 'rzp_test_SRRUkZf1hAkekh',
+        amountInPaise: totalAmountPaise,
+        currency: 'INR',
+        name: 'Magiil Mart',
+        description: 'Grocery order payment',
+        email: user.email ?? 'unknown@email.com',
+        contact: _phoneController.text.trim(),
+      );
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isPlacingOrder = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment failed. Please try again.')),
+        );
+      }
+    }
+  }
 
+  Future<void> _createOrder({
+    required String paymentMethod,
+    required String paymentStatus,
+    required Map<String, dynamic> paymentData,
+  }) async {
+    final cart = Provider.of<CartProvider>(context, listen: false);
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) throw Exception('User not authenticated');
+
+    final validationResult = DeliveryValidator.validateDelivery(
+      _deliveryLatitude,
+      _deliveryLongitude,
+    );
+    final deliveryFee = validationResult.deliveryFee ?? _deliveryFee;
+    final totalAmount = cart.totalAmount + deliveryFee;
+
+    final payload = {
+      'user_id': user.id,
+      'user_email': user.email ?? '',
+      'items': cart.items.map((item) => item.toMap()).toList(),
+      'subtotal_amount': cart.totalAmount,
+      'delivery_fee': deliveryFee,
+      'total_amount': totalAmount,
+      'status': 'Placed',
+      'created_at': DateTime.now().toUtc().toIso8601String(),
+      'delivery_name': _customerNameController.text.trim(),
+      'delivery_phone': _phoneController.text.trim(),
+      'delivery_address': _addressController.text.trim(),
+      'delivery_city': _cityController.text.trim(),
+      'delivery_pincode': _pincodeController.text.trim(),
+      'delivery_latitude': _deliveryLatitude,
+      'delivery_longitude': _deliveryLongitude,
+      'delivery_distance_km': validationResult.distanceKm,
+      'payment_method': paymentMethod,
+      'payment_status': paymentStatus,
+      'payment_id': paymentData['razorpay_payment_id'] ?? '',
+      'payment_order_id': paymentData['razorpay_order_id'] ?? '',
+      'payment_signature': paymentData['razorpay_signature'] ?? '',
+    };
+
+    try {
+      await supabase.from('orders').insert(payload);
+    } catch (e) {
+      final msg = e.toString();
+      if (msg.contains('column') || msg.contains('does not exist')) {
+        await supabase.from('orders').insert({
+          'user_id': user.id,
+          'user_email': user.email ?? '',
+          'customer_name': _customerNameController.text.trim(),
+          'phone_number': _phoneController.text.trim(),
+          'delivery_address': _addressController.text.trim(),
+          'total_amount': totalAmount,
+          'status': 'Placed',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+          'items': cart.items.map((item) => item.toMap()).toList(),
+          'payment_method': paymentMethod,
+          'payment_status': paymentStatus,
+        });
+      } else {
+        rethrow;
+      }
+    }
+    await _reduceProductStock(cart.items);
+  }
+
+  Future<void> _onPaymentSuccess(Map<String, dynamic> data) async {
+    try {
+      await _createOrder(
+        paymentMethod: 'razorpay',
+        paymentStatus: 'paid',
+        paymentData: data,
+      );
+      final cart = Provider.of<CartProvider>(context, listen: false);
       cart.clearCart();
-
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Order placed successfully'),
+          content: Text('Payment successful and order placed.'),
           backgroundColor: Colors.green,
         ),
       );
-
-      Navigator.pop(context);
-    } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to place order: $e'),
-          backgroundColor: Colors.red,
-        ),
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OrdersScreen()),
       );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to place order after payment: $e')),
+        );
+      }
     } finally {
       if (mounted) {
-        setState(() => _isPlacingOrder = false);
+        setState(() {
+          _isPlacingOrder = false;
+        });
       }
     }
+  }
+
+  void _onPaymentError(String code, String message) {
+    if (!mounted) return;
+    setState(() {
+      _isPlacingOrder = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Payment failed. Please try again.')),
+    );
+  }
+
+  void _onExternalWallet(String wallet) {
+    if (!mounted) return;
+    setState(() {
+      _isPlacingOrder = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('External wallet selected: $wallet')), 
+    );
   }
 
   @override
@@ -676,15 +792,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Payment Method',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF5A2E4A),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  RadioListTile<_PaymentMethod>(
+                    title: const Text('Pay Online (Razorpay)'),
+                    value: _PaymentMethod.razorpay,
+                    groupValue: _paymentMethod,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _paymentMethod = value;
+                        });
+                      }
+                    },
+                  ),
+                  RadioListTile<_PaymentMethod>(
+                    title: const Text('Cash on Delivery'),
+                    value: _PaymentMethod.cod,
+                    groupValue: _paymentMethod,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _paymentMethod = value;
+                        });
+                      }
+                    },
+                  ),
 
+                  const SizedBox(height: 16),
                   // PLACE ORDER BUTTON
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: (StoreAvailabilityChecker.isStoreOpen() && !_isPlacingOrder)
-                          ? _placeOrder
+                          ? _handleCheckout
                           : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _plum,
@@ -697,7 +847,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             )
                           : Text(
                               StoreAvailabilityChecker.isStoreOpen()
-                                  ? 'Place Order'
+                                  ? (_paymentMethod == _PaymentMethod.cod ? 'Place Order (COD)' : 'Pay with Razorpay')
                                   : 'Store Closed',
                               style: const TextStyle(
                                 fontSize: 16,
