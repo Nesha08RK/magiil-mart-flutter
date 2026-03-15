@@ -1,13 +1,14 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../../models/profile.dart';
 
 class ProfileService {
   final _supabase = Supabase.instance.client;
   late SharedPreferences _prefs;
-  
+
   bool _initialized = false;
 
   /// Initialize the service
@@ -21,17 +22,12 @@ class ProfileService {
   String _getCacheKey(String userId) => 'profile_$userId';
 
   /// 📥 Load profile with offline support
-  /// 1. Load cache first (instant UI)
-  /// 2. Fetch from Supabase (background sync)
-  /// 3. Update cache if successful
   Future<Profile?> loadProfile(String userId) async {
     await initialize();
-    
+
     try {
-      // Step 1: Try to load from cache (instant)
       final cachedProfile = _loadProfileFromCache(userId);
-      
-      // Step 2: Fetch from Supabase (don't block UI if fails)
+
       try {
         final response = await _supabase
             .from('profiles')
@@ -41,18 +37,13 @@ class ProfileService {
 
         if (response != null) {
           final profile = Profile.fromJson(response as Map<String, dynamic>);
-          
-          // Step 3: Update cache with fresh data
           await _saveProfileToCache(userId, profile);
-          
           return profile;
         }
       } catch (e) {
-        // Supabase failed, but we have cached data or will create new
         print('Supabase fetch failed: $e');
       }
 
-      // Return cached profile if available, otherwise null
       return cachedProfile;
     } catch (e) {
       print('Error loading profile: $e');
@@ -63,25 +54,20 @@ class ProfileService {
   /// 💾 Save profile to Supabase
   Future<Profile?> saveProfile(Profile profile) async {
     await initialize();
-    
-    try {
-      // Update existing profile
-      await _supabase
-          .from('profiles')
-          .update({
-            'full_name': profile.fullName,
-            'phone': profile.phone,
-            'address': profile.address,
-            'city': profile.city,
-            'pincode': profile.pincode,
-            'avatar_url': profile.avatarUrl,
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('user_id', profile.userId);
 
-      // Update cache
+    try {
+      await _supabase.from('profiles').update({
+        'full_name': profile.fullName,
+        'phone': profile.phone,
+        'address': profile.address,
+        'city': profile.city,
+        'pincode': profile.pincode,
+        'avatar_url': profile.avatarUrl,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('user_id', profile.userId);
+
       await _saveProfileToCache(profile.userId, profile);
-      
+
       return profile;
     } catch (e) {
       print('Error saving profile: $e');
@@ -89,13 +75,13 @@ class ProfileService {
     }
   }
 
-  /// 🗑️ Clear profile cache (on logout)
+  /// 🗑️ Clear profile cache
   Future<void> clearProfileCache(String userId) async {
     await initialize();
     await _prefs.remove(_getCacheKey(userId));
   }
 
-  /// 📦 Load profile from local cache
+  /// 📦 Load profile from cache
   Profile? _loadProfileFromCache(String userId) {
     try {
       final cached = _prefs.getString(_getCacheKey(userId));
@@ -109,7 +95,7 @@ class ProfileService {
     return null;
   }
 
-  /// 📦 Save profile to local cache
+  /// 📦 Save profile to cache
   Future<void> _saveProfileToCache(String userId, Profile profile) async {
     try {
       final json = jsonEncode(profile.toJson());
@@ -124,9 +110,53 @@ class ProfileService {
     return 'data:image/jpeg;base64,${base64Encode(imageBytes)}';
   }
 
-  /// 🖼️ Decode base64 image string
+  /// 🖼️ Decode base64 image
   static List<int> decodeBase64Image(String base64String) {
     final base64 = base64String.replaceAll('data:image/jpeg;base64,', '');
     return base64Decode(base64);
+  }
+
+  /// 🖼️ Upload profile image to Supabase Storage
+  Future<String?> uploadProfileImage(
+      String userId, List<int> imageBytes) async {
+    try {
+      const bucket = 'profile_images';
+      final path =
+          'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final fileData = Uint8List.fromList(imageBytes);
+
+      await _supabase.storage.from(bucket).uploadBinary(
+            path,
+            fileData,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final publicUrl = _supabase.storage.from(bucket).getPublicUrl(path);
+      return publicUrl;
+    } catch (e) {
+      print('Failed to upload profile image: $e');
+      return null;
+    }
+  }
+
+  /// 🗑️ Remove image from Supabase Storage
+  Future<void> removeProfileImageFromStorage(String? imageUrl) async {
+    if (imageUrl == null || imageUrl.isEmpty) return;
+
+    try {
+      final regex = RegExp(r'storage/v1/object/public/([^/]+)/(.+)');
+      final match = regex.firstMatch(imageUrl);
+      if (match == null) return;
+
+      final bucket = match.group(1);
+      final path = match.group(2);
+
+      if (bucket == null || path == null) return;
+
+      await _supabase.storage.from(bucket).remove([path]);
+    } catch (e) {
+      print('Failed to remove profile image: $e');
+    }
   }
 }
