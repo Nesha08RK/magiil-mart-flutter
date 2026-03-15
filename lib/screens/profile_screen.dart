@@ -259,6 +259,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               onTap: _goToEditProfile,
                             ),
                             const Divider(height: 1),
+                          
+
+// ⭐ ABOUT SCREEN
+_buildActionTile(
+  icon: Icons.info_outline,
+  title: 'About Magiil Mart',
+  trailing: Icons.arrow_forward_ios,
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const AboutScreen(),
+      ),
+    );
+  },
+),
+
+const Divider(height: 1),
+
+
                             _buildActionTile(
                               icon: Icons.notifications,
                               title: 'Notifications',
