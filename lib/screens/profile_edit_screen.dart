@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:convert';
 
 import '../models/profile.dart';
+import 'checkout/osm_address_picker.dart';
 import 'services/profile_service.dart';
 
 class ProfileEditScreen extends StatefulWidget {
@@ -25,8 +25,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late TextEditingController _cityController;
   late TextEditingController _pincodeController;
 
-  String? _selectedImageBase64;
+  String? _selectedImageUrl;
   bool _saving = false;
+  double? _selectedLatitude;
+  double? _selectedLongitude;
   late ProfileService _profileService;
 
   @override
@@ -40,9 +42,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _cityController = TextEditingController(text: widget.profile.city ?? '');
     _pincodeController = TextEditingController(text: widget.profile.pincode ?? '');
 
-    // Load existing avatar
+    // Load existing avatar URL or base64
     if (widget.profile.avatarUrl != null) {
-      _selectedImageBase64 = widget.profile.avatarUrl;
+      _selectedImageUrl = widget.profile.avatarUrl;
     }
   }
 
@@ -63,9 +65,20 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
       if (pickedFile != null) {
-        final bytes = await File(pickedFile.path).readAsBytes();
+        final bytes = await pickedFile.readAsBytes();
+        final uploadedUrl = await _profileService.uploadProfileImage(widget.profile.userId, bytes);
+        if (uploadedUrl == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Failed to upload image. Please try again.'),
+              ),
+            );
+          }
+          return;
+        }
         setState(() {
-          _selectedImageBase64 = ProfileService.encodeImageToBase64(bytes);
+          _selectedImageUrl = uploadedUrl;
         });
       }
     } catch (e) {
@@ -73,6 +86,84 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error picking image: $e')),
         );
+      }
+    }
+  }
+
+  /// ❌ Remove profile image
+  Future<void> _removePhoto() async {
+    final currentAvatarUrl = _selectedImageUrl ?? widget.profile.avatarUrl;
+    if (currentAvatarUrl == null || currentAvatarUrl.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No profile photo to remove.')),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+    });
+
+    try {
+      await _profileService.removeProfileImageFromStorage(currentAvatarUrl);
+      _selectedImageUrl = null;
+
+      final updatedProfile = widget.profile.copyWith(
+        fullName: _fullNameController.text.trim(),
+        phone: _phoneController.text.trim(),
+        address: _addressController.text.trim(),
+        city: _cityController.text.trim(),
+        pincode: _pincodeController.text.trim(),
+        avatarUrl: null,
+      );
+      await _profileService.saveProfile(updatedProfile);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile photo removed.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to remove profile photo: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
+    }
+  }
+
+  /// 🗺️ Pick address from map
+  Future<void> _selectAddressOnMap() async {
+    try {
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const OSMAddressPicker(),
+          fullscreenDialog: true,
+        ),
+      );
+
+      if (result != null) {
+        setState(() {
+          _addressController.text = result['address'] ?? _addressController.text;
+          _cityController.text = result['city'] ?? _cityController.text;
+          _pincodeController.text = result['pincode'] ?? _pincodeController.text;
+          _selectedLatitude = (result['lat'] as double?);
+          _selectedLongitude = (result['lng'] as double?);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Failed to pick address from map: $e');
       }
     }
   }
@@ -123,7 +214,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         address: _addressController.text.trim(),
         city: _cityController.text.trim(),
         pincode: _pincodeController.text.trim(),
-        avatarUrl: _selectedImageBase64,
+        avatarUrl: _selectedImageUrl,
       );
 
       await _profileService.saveProfile(updatedProfile);
@@ -162,12 +253,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   /// 🖼️ Display avatar
   Widget _buildAvatarDisplay() {
-    if (_selectedImageBase64 != null && _selectedImageBase64!.isNotEmpty) {
+    if (_selectedImageUrl != null && _selectedImageUrl!.isNotEmpty) {
       try {
-        if (_selectedImageBase64!.startsWith('data:image')) {
-          final base64Data = _selectedImageBase64!.replaceAll('data:image/jpeg;base64,', '');
+        if (_selectedImageUrl!.startsWith('data:image')) {
+          final base64Data = _selectedImageUrl!.replaceAll('data:image/jpeg;base64,', '');
           return Image.memory(base64Decode(base64Data), fit: BoxFit.cover);
         }
+        return Image.network(_selectedImageUrl!, fit: BoxFit.cover, errorBuilder: (_, __, ___) {
+          return Container(
+            color: const Color(0xFFF0F0F0),
+            child: const Icon(Icons.image, size: 40, color: Colors.grey),
+          );
+        });
       } catch (e) {
         print('Error displaying avatar: $e');
       }
@@ -243,6 +340,34 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               Text(
                 'Tap to change picture (gallery only)',
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _saving ? null : _pickImage,
+                    icon: const Icon(Icons.camera_alt, size: 18),
+                    label: const Text('Change Photo'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF5A2E4A),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _removePhoto,
+                    icon: const Icon(Icons.delete_outline, size: 18),
+                    label: const Text('Remove Photo'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: _saving ? null : _selectAddressOnMap,
+                icon: const Icon(Icons.map, size: 18),
+                label: const Text('Select Address on Map'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5A2E4A),
+                ),
               ),
               const SizedBox(height: 24),
 
