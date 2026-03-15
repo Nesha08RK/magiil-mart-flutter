@@ -1,8 +1,6 @@
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:convert';
 
 import '../../models/profile.dart';
 
@@ -130,41 +128,5 @@ class ProfileService {
   static List<int> decodeBase64Image(String base64String) {
     final base64 = base64String.replaceAll('data:image/jpeg;base64,', '');
     return base64Decode(base64);
-  }
-
-  /// �️ Upload profile image bytes to Supabase Storage and return public URL
-  Future<String?> uploadProfileImage(String userId, List<int> imageBytes) async {
-    try {
-      const bucket = 'profile_images';
-      final path = 'avatars/$userId/${DateTime.now().millisecondsSinceEpoch}.jpg';
-
-      final fileData = Uint8List.fromList(imageBytes);
-      await _supabase.storage.from(bucket).upload(path, fileData, fileOptions: const FileOptions(cacheControl: '3600', upsert: true));
-
-      final publicUrl = _supabase.storage.from(bucket).getPublicUrl(path);
-      return publicUrl;
-    } catch (e) {
-      print('Failed to upload profile image: $e');
-      return null;
-    }
-  }
-
-  /// 🗑️ Remove image from Supabase storage if URL is parsable
-  Future<void> removeProfileImageFromStorage(String? imageUrl) async {
-    if (imageUrl == null || imageUrl.isEmpty) return;
-
-    try {
-      final regex = RegExp(r'storage/v1/object/public/([^/]+)/(.+)');
-      final match = regex.firstMatch(imageUrl);
-      if (match == null) return;
-
-      final bucket = match.group(1);
-      final path = match.group(2);
-      if (bucket == null || path == null || bucket.isEmpty || path.isEmpty) return;
-
-      await _supabase.storage.from(bucket).remove([path]);
-    } catch (e) {
-      print('Failed to remove profile image from storage: $e');
-    }
   }
 }
