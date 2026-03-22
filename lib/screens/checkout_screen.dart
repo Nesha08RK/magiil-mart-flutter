@@ -754,7 +754,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               ],
                             ),
                             Text(
-                              _deliveryFee > 0
+                              _deliveryDistanceKm != null
                                   ? '₹${_deliveryFee.toString()}'
                                   : 'TBD',
                               style: const TextStyle(

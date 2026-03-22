@@ -14,7 +14,7 @@ class MagiilMartStore {
   static const int closeMinute = 0;
 
   // Delivery configuration
-  static const double maxDeliveryRadiusKm = 8.0;
+  static const double maxDeliveryRadiusKm = 10.5;
 }
 
 /// 📏 Distance Calculation using Haversine formula (latlong2)
@@ -51,31 +51,42 @@ class DeliveryDistanceCalculator {
 /// 💰 Dynamic Delivery Fee Calculator
 class DeliveryFeeCalculator {
   /// Calculate delivery fee based on distance in km
-  /// 0 - 3 km → ₹20
-  /// 3 - 6 km → ₹40
+  /// 0 - 2 km → ₹20
+  /// 2 - 4 km → ₹30
+  /// 4 - 6 km → ₹40
   /// 6 - 8 km → ₹60
+  /// 8 - 10.5 km → ₹80
+  /// > 10.5 km → ₹80 (max fee, delivery restricted at distance validation level)
   static int calculateDeliveryFee(double distanceKm) {
-    if (distanceKm <= 3.0) {
+    if (distanceKm <= 2.0) {
       return 20;
+    } else if (distanceKm <= 4.0) {
+      return 30;
     } else if (distanceKm <= 6.0) {
       return 40;
     } else if (distanceKm <= 8.0) {
       return 60;
+    } else if (distanceKm <= 10.5) {
+      return 80;
     }
-    // Beyond 8 km (should not reach here due to radius validation)
-    return 0;
+    // Beyond 10.5 km - return max fee (validation should prevent reaching here)
+    return 80;
   }
 
   /// Get delivery fee tier description
   static String getFeeDescription(double distanceKm) {
-    if (distanceKm <= 3.0) {
-      return '₹20 (≤3 km)';
+    if (distanceKm <= 2.0) {
+      return '₹20 (≤2 km)';
+    } else if (distanceKm <= 4.0) {
+      return '₹30 (2-4 km)';
     } else if (distanceKm <= 6.0) {
-      return '₹40 (3-6 km)';
+      return '₹40 (4-6 km)';
     } else if (distanceKm <= 8.0) {
       return '₹60 (6-8 km)';
+    } else if (distanceKm <= 10.5) {
+      return '₹80 (8-10.5 km)';
     }
-    return '₹0';
+    return '₹80 (Max)';
   }
 }
 
