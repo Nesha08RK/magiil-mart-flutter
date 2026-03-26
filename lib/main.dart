@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'providers/cart_provider.dart';
+import 'providers/notification_provider.dart';
 import 'screens/splash_screen.dart';
 
 Future<void> main() async {
@@ -26,6 +27,13 @@ Future<void> main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider<CartProvider>(create: (_) => cartProvider),
+        // Notification provider will be initialized per user in splash screen
+        ChangeNotifierProxyProvider<CartProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(null),
+          update: (_, __, ___) => NotificationProvider(
+            Supabase.instance.client.auth.currentUser?.id,
+          ),
+        ),
       ],
       child: const MagiilMartApp(),
     ),
