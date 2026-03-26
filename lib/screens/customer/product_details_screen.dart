@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../models/cart_item.dart';
 import '../../../providers/cart_provider.dart';
+import '../cart_screen.dart';
 import '../services/customer_product_service.dart';
 
 // Helper function to calculate unit conversion ratio
@@ -129,17 +130,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: widget.imageUrl!,
-                      fit: BoxFit.cover,
-                      memCacheWidth: 300,
-                      placeholder: (c, u) => _buildPlaceholderImage(),
-                      errorWidget: (context, url, error) => _buildPlaceholderImage(),
-                    )
-                  : _buildPlaceholderImage(),
-            ),
             leading: IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(8),
@@ -150,6 +140,56 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 child: const Icon(Icons.arrow_back, color: Colors.white),
               ),
               onPressed: () => Navigator.of(context).pop(),
+            ),
+            actions: [
+              Consumer<CartProvider>(
+                builder: (context, cart, _) {
+                  final count = cart.items.fold<int>(0, (sum, item) => sum + item.quantity);
+                  return IconButton(
+                    tooltip: 'Go to Cart',
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CartScreen()),
+                    ),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.shopping_cart_outlined, color: Colors.white),
+                        if (count > 0)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              padding: const EdgeInsets.all(2.8),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                              child: Text(
+                                count > 99 ? '99+' : '$count',
+                                style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+            flexibleSpace: FlexibleSpaceBar(
+              background: widget.imageUrl != null && widget.imageUrl!.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: widget.imageUrl!,
+                      fit: BoxFit.cover,
+                      memCacheWidth: 300,
+                      placeholder: (c, u) => _buildPlaceholderImage(),
+                      errorWidget: (context, url, error) => _buildPlaceholderImage(),
+                    )
+                  : _buildPlaceholderImage(),
             ),
           ),
           

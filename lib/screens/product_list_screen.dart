@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../providers/cart_provider.dart';
+import 'cart_screen.dart';
 import 'customer/product_details_screen.dart';
 import 'services/customer_product_service.dart';
 
@@ -182,6 +183,49 @@ class _ProductListScreenState extends State<ProductListScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, color: Color(0xFF2C2C2C), size: 20),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          Consumer<CartProvider>(
+            builder: (context, cart, _) {
+              final count = cart.items.fold<int>(0, (sum, item) => sum + item.quantity);
+              return IconButton(
+                tooltip: 'Go to Cart',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CartScreen()),
+                ),
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.shopping_cart_outlined, color: Color(0xFF2C2C2C)),
+                    if (count > 0)
+                      Positioned(
+                        top: -2,
+                        right: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.2),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                          child: Text(
+                            count > 99 ? '99+' : '$count',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: _loading
           ? const Center(
