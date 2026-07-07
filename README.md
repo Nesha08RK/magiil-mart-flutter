@@ -69,6 +69,59 @@ The application features secure authentication, role-based access control, real-
 
 ---
 
+---
+
+# 📱 Application Screenshots
+
+Explore the key features of **Magiil Mart**, from customer shopping to admin management.
+
+## 👤 Customer Module
+
+| Splash Screen | Login | Home |
+|:-------------:|:-----:|:----:|
+| <img src="assets/screenshots/splashScreen.png" width="220"/> | <img src="assets/screenshots/login.png" width="220"/> | <img src="assets/screenshots/Home.png" width="220"/> |
+| Launch screen | Secure authentication | Browse products & categories |
+
+---
+
+| Product Details | Shopping Cart | Checkout - Address |
+|:---------------:|:-------------:|:------------------:|
+| <img src="assets/screenshots/itemsDisplay.png" width="220"/> | <img src="assets/screenshots/cart.png" width="220"/> | <img src="assets/screenshots/checkout1.png" width="220"/> |
+| View product details | Manage cart items | Select delivery address using map |
+
+---
+
+| Checkout - Payment | Order History | Profile |
+|:------------------:|:-------------:|:-------:|
+| <img src="assets/screenshots/checkout2.png" width="220"/> | <img src="assets/screenshots/OrderHistory.png" width="220"/> | <img src="assets/screenshots/profile1.png" width="220"/> |
+| Razorpay & COD | View previous orders | User profile |
+
+---
+
+| Edit Profile |
+|:------------:|
+| <img src="assets/screenshots/profile2.png" width="220"/> |
+| Update account information |
+
+---
+
+# 👨‍💼 Admin Module
+
+| Dashboard | Dashboard Overview | Product Management |
+|:---------:|:------------------:|:------------------:|
+| <img src="assets/screenshots/adminDash1.png" width="220"/> | <img src="assets/screenshots/adminDash2.png" width="220"/> | <img src="assets/screenshots/adminProducts.png" width="220"/> |
+| Admin dashboard | Business insights | Manage products |
+
+---
+
+| Order Management | Navigation Panel |
+|:----------------:|:----------------:|
+| <img src="assets/screenshots/adminOrders.png" width="220"/> | <img src="assets/screenshots/adminSidepanel.png" width="220"/> |
+| Manage customer orders | Navigate admin features |
+
+---
+
+
 # 🛠️ Tech Stack
 
 ### Frontend
